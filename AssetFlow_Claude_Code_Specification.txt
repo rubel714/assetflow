@@ -1,0 +1,324 @@
+ASSETFLOW — DEVELOPMENT SPECIFICATION
+Complete Asset Lifecycle Management SaaS
+Tagline: Manage Every Asset. Every Stage.
+
+This document is the product catalog and the build contract.
+Sections 1–4 describe the full product. Section 5 (Phase 1) is the only
+scope that may be built until that phase is complete.
+
+
+1. PRODUCT VISION
+AssetFlow is a multi-tenant B2B SaaS platform for complete asset lifecycle management.
+
+Core lifecycle:
+Request → Approval → Purchase → Receive → Tag → Assign → Transfer → Maintain → Return → Retire → Dispose
+
+Target customers:
+- SMEs
+- Large companies
+- NGOs
+- Factories
+- Construction companies
+- Project/site-based organizations
+
+
+2. CORE FEATURES (PRODUCT CATALOG)
+
+Each item is tagged: PHASE 1 | MVP+ | PHASE 2 | PHASE 3
+
+2.1 Organization & Company Management — PHASE 1 (basic)
+- Multi-tenant organization/company management.
+- Departments, branches, offices, warehouses, projects and sites.
+- User management.
+- Roles and permissions.
+- RBAC.
+- Organization settings.
+
+Phase 1 roles:
+Organization Admin, Asset Manager, Employee.
+
+Later roles:
+Super Admin, Department Manager, Technician, Auditor, Finance User, Procurement User.
+
+2.2 Asset Register — PHASE 1
+- Central asset database.
+- Asset categories.
+- Unique Asset Tag per organization.
+- Name and description.
+- Brand, model, serial number.
+- Purchase date and cost.
+- Status, location, custodian.
+- Department/project assignment.
+
+Phase 1 statuses:
+Available, Assigned, Damaged, Lost, Retired.
+
+Later statuses:
+In Repair, Disposed.
+
+2.3 Asset Categories — PHASE 1
+Examples: Laptop, Desktop, Monitor, Mobile Phone, Printer, Furniture, Vehicle, Generator, Pump, Machinery, Tools, Construction Equipment.
+Configurable custom fields: later, not Phase 1.
+
+2.4 Asset Assignment — PHASE 1 (manager-recorded)
+- Assign to an employee.
+- Optional department, location, and project on the asset.
+- Return and transfer.
+- Assignment history and current custodian tracking.
+Digital employee acceptance: MVP+.
+
+2.5 Asset Lifecycle — PHASE 1 (custody events)
+Store lifecycle event type, date/time, user, previous value, new value, notes.
+Purchase/receive/tag/maintenance/retire/dispose events: later modules.
+
+2.6 Asset Request & Approval — PHASE 2
+2.7 QR Code & Barcode — MVP+
+2.8 Maintenance Management — MVP+
+2.9 Warranty & Contract Management — MVP+
+2.10 Asset Retirement & Disposal — PHASE 2
+2.11 Financial Asset Management — PHASE 2 (keep modular)
+2.12 Dashboard & Analytics — PHASE 1 (KPI counts only; charts later)
+2.13 Notifications & Alerts — MVP+ in-app/email; SMS/WhatsApp later
+2.14 Documents — MVP+ (local files); S3 later
+2.15 Search & Filters — PHASE 1
+2.16 Audit Trail — PHASE 1 (create/edit/assign/transfer/return/status)
+2.17 Employee Self-Service — MVP+ (Phase 1 employees may view assigned assets only)
+2.18 Reports & Export — PHASE 1 CSV asset register; Excel/PDF later
+
+
+3. CONSTRUCTION / PROJECT ASSET MODULE — PHASE 2
+Projects and sites exist as simple records in Phase 1 so assets can be linked.
+Operator assignment, site-to-site extras, fuel and operating hours: later.
+
+
+4. AI FEATURES — PHASE 3
+Add AI only after core workflows are stable.
+
+
+5. PHASE 1 — BUILD THIS NOW
+
+Build:
+1. Organization and users
+2. Roles and permissions (3 roles + API middleware)
+3. Departments, locations, projects
+4. Asset categories
+5. Asset register (CRUD, search, filter, pagination)
+6. Assign, transfer, return
+7. Lifecycle events + audit log
+8. Dashboard KPI counts
+9. Asset register CSV export
+
+Do not build in Phase 1:
+QR/barcode, maintenance, warranties/alerts, employee portal extras,
+approval/procurement, depreciation, disposal workflow, Excel/PDF,
+custom fields, email/SMS, AI, Docker/Redis unless required to run locally.
+
+First vertical slice:
+Login → org structure → create asset → assign → dashboard counts update,
+with tenant isolation and permission checks.
+
+
+6. MVP+ (AFTER PHASE 1)
+- QR generate/print and scan page
+- Warranties and in-app expiry list
+- Maintenance requests and work orders
+- Employee my-assets and handover acceptance
+- Local file attachments
+
+
+7. PHASE 2
+- Asset request and approval workflow
+- Procurement, purchase orders, receiving
+- Capitalization and depreciation
+- Disposal
+- Email notification engine
+- Construction/site extras
+- Advanced reports (Excel/PDF)
+
+
+8. PHASE 3
+- AI Asset Assistant and recommendations
+- Predictive maintenance
+- Advanced analytics
+- Mobile/PWA improvements
+- External integrations
+
+
+9. TECH STACK (LOCKED TO THIS REPO)
+
+Current (required):
+- Frontend: React + Vite + Tailwind CSS + React Router (JavaScript)
+- Backend: Node.js + Express
+- Database: MySQL (XAMPP or equivalent)
+- Auth: JWT Bearer token
+- Layout: client/ and server/ (not a TypeScript monorepo)
+
+Later upgrades (not Phase 1 blockers):
+- TypeScript, Prisma, PostgreSQL, Docker, Redis, BullMQ, S3, SSO/OAuth
+
+Rules:
+- UI consumes APIs only; no direct database access from the client.
+- Business rules live in backend services.
+- Never hard-code tenant or user IDs in feature logic.
+- Never bypass authorization.
+- Use transactions for assign/transfer/return.
+
+
+10. TENANCY
+
+- Shared database. Every tenant-owned row has OrganizationId.
+- One active organization per login in Phase 1.
+- Super Admin (cross-org) is later.
+- The client must not be trusted as the source of OrganizationId.
+  Scope every query from the authenticated user's organization.
+- AssetTag is unique on (OrganizationId, AssetTag).
+- Username is unique globally in Phase 1.
+
+
+11. RBAC (PHASE 1)
+
+Roles:
+- organization_admin
+- asset_manager
+- employee
+
+Permissions:
+- org.manage
+- users.manage
+- users.read
+- setup.manage
+- assets.read
+- assets.manage
+- assets.assign
+- reports.export
+- dashboard.read
+
+Grants:
+- organization_admin: all permissions
+- asset_manager: users.read, setup.manage, assets.read, assets.manage,
+  assets.assign, reports.export, dashboard.read
+- employee: assets.read (assigned assets only), dashboard.read (own counts)
+
+Employees cannot create users, change setup, create/edit assets,
+or assign/transfer/return.
+
+
+12. ASSET STATUS TRANSITIONS (PHASE 1)
+
+Allowed:
+- Available → Assigned (assign)
+- Assigned → Available (return)
+- Assigned → Assigned (transfer to another employee)
+- Available or Assigned → Damaged or Lost (Asset Manager or Admin)
+- Any non-terminal → Retired (Organization Admin only)
+
+Forbidden:
+- Assign, transfer, or return a Damaged, Lost, or Retired asset
+- In Repair or Disposed (those statuses are not used in Phase 1)
+
+Manager-recorded assignment is enough. Employee digital acceptance is MVP+.
+
+
+13. DATA MODEL RULES
+
+- asset_assignments = current and past custody (open/closed rows)
+- assign / transfer / return = operations that open/close assignment rows
+- asset_lifecycle_events = user-facing timeline
+- audit_logs = immutable field-level security log
+
+Do not treat transfer/return as independent history tables in Phase 1.
+
+Phase 1 tables:
+organizations
+users
+roles
+permissions
+role_permissions
+departments
+locations
+projects
+asset_categories
+assets
+asset_assignments
+asset_lifecycle_events
+audit_logs
+
+Do not create in the first schema:
+asset_requests, approval_*, maintenance_*, warranties, contracts,
+asset_depreciations, asset_valuations, asset_retirements, asset_disposals,
+notification_templates
+
+IDs: integer primary keys (existing MySQL style).
+Add CreatedAt / UpdatedAt where useful.
+Human AssetTag format: AF-0001, sequential per organization.
+
+
+14. PHASE 1 DEVELOPMENT STEPS
+
+1. Revise this specification (done as the Phase 1 contract).
+2. Schema, migrate/seed, JWT, tenancy, RBAC middleware.
+3. Organization setup APIs and UI (users, departments, locations, projects, categories).
+4. Asset register APIs and UI.
+5. Assign / transfer / return + lifecycle + audit in one transaction.
+6. Dashboard counts + CSV export.
+7. Tenant-isolation and permission checks.
+8. README and .env.example.
+
+Later step numbers (QR, maintenance, warranty, employee portal, deploy)
+belong to MVP+ / Phase 2.
+
+
+15. WORKING RULES
+
+1. Read existing code before modifying it.
+2. Follow the existing architecture.
+3. Do not rewrite working modules unnecessarily.
+4. Make small logical changes.
+5. Run relevant tests after significant changes.
+6. Fix errors instead of ignoring them.
+7. Never hard-code tenant/user IDs, permissions or secrets in feature code.
+8. Never bypass authorization.
+9. Use database transactions for related lifecycle operations.
+10. Keep migrations safe.
+11. Add seed/demo data for major modules.
+12. Prefer reusable services/components.
+13. Keep business rules in backend/domain services.
+14. UI consumes APIs; it must not access the database directly.
+15. Avoid unnecessary dependencies.
+16. For each feature, consider entities, permissions, audit, and edge cases.
+
+At the end of each task report:
+- What changed
+- Files changed
+- Database changes
+- Tests executed
+- Remaining issues
+
+
+16. DEFINITION OF DONE
+
+First slice (Phase 1 demo):
+- Login works with JWT
+- Organization structure can be created
+- An asset can be created, assigned, transferred, and returned
+- Dashboard counts reflect real data
+- Queries are scoped by organization
+- Role permissions are enforced
+
+Release bar (before calling Phase 1 finished for production):
+- Schema, API, authorization, frontend, validation
+- Loading / empty / error states
+- Audit for custody and asset edits
+- Tenant-isolation checks
+- App runs locally with documented env vars
+
+
+17. PRODUCT POSITIONING
+
+Product: AssetFlow
+Category: Asset Lifecycle Management SaaS
+Tagline: Manage Every Asset. Every Stage.
+Core promise: Track, assign, maintain, transfer and optimize every company
+asset from purchase to disposal.
+Future: a complete Asset Operations Platform for organizations with
+distributed employees, offices, warehouses, projects and construction sites.
