@@ -77,6 +77,36 @@ async function insertNamed(table, idCol, orgId, names) {
   return ids;
 }
 
+async function insertVendors(table, idCol, orgId, records) {
+  const ids = {};
+  for (const rec of records) {
+    const [existing] = await db.query(
+      `SELECT ${idCol} AS id FROM ${table} WHERE OrganizationId = ? AND Name = ? LIMIT 1`,
+      [orgId, rec.Name]
+    );
+    if (existing.length) {
+      ids[rec.Name] = existing[0].id;
+      continue;
+    }
+    const [result] = await db.query(
+      `INSERT INTO ${table}
+        (OrganizationId, Name, ContactName, Email, Phone, Address, Website)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        orgId,
+        rec.Name,
+        rec.ContactName || null,
+        rec.Email || null,
+        rec.Phone || null,
+        rec.Address || null,
+        rec.Website || null,
+      ]
+    );
+    ids[rec.Name] = result.insertId;
+  }
+  return ids;
+}
+
 async function ensureUser(orgId, username, password, fullName, roleKey) {
   const [rows] = await db.query(
     "SELECT UserId FROM users WHERE Username = ? LIMIT 1",
@@ -206,20 +236,97 @@ async function seed() {
       "Networking Equipment",
     ]
   );
-  const suppliers = await insertNamed("suppliers", "SupplierId", orgId, [
-    "Tech Source Ltd",
-    "Office Mart BD",
-    "Global IT Distributors",
-    "Bashundhara Procurement",
+  const suppliers = await insertVendors("suppliers", "SupplierId", orgId, [
+    {
+      Name: "Tech Source Ltd",
+      ContactName: "Rafiq Hasan",
+      Email: "sales@techsource.example",
+      Phone: "+880 1711-100001",
+      Address: "House 12, Road 7, Banani, Dhaka 1213",
+      Website: "https://techsource.example",
+    },
+    {
+      Name: "Office Mart BD",
+      ContactName: "Nusrat Jahan",
+      Email: "orders@officemart.example",
+      Phone: "+880 1711-100002",
+      Address: "Level 4, Elephant Road, Dhaka 1205",
+      Website: "https://officemart.example",
+    },
+    {
+      Name: "Global IT Distributors",
+      ContactName: "Imran Chowdhury",
+      Email: "bd@globalit.example",
+      Phone: "+880 1711-100003",
+      Address: "Plot 18, Tejgaon Industrial Area, Dhaka 1208",
+      Website: "https://globalit.example",
+    },
+    {
+      Name: "Bashundhara Procurement",
+      ContactName: "Procurement Desk",
+      Email: "procurement@bashundhara.example",
+      Phone: "+880 2-41012345",
+      Address: "Group Head Office, Bashundhara R/A, Dhaka",
+      Website: "https://www.bashundharagroup.com",
+    },
   ]);
-  const manufacturers = await insertNamed("manufacturers", "ManufacturerId", orgId, [
-    "Dell",
-    "HP",
-    "Lenovo",
-    "Samsung",
-    "Apple",
-    "Canon",
-    "Cisco",
+  const manufacturers = await insertVendors("manufacturers", "ManufacturerId", orgId, [
+    {
+      Name: "Dell",
+      ContactName: "Enterprise Support",
+      Email: "support@dell.example",
+      Phone: "+1 800-624-9897",
+      Address: "1 Dell Way, Round Rock, TX 78682, USA",
+      Website: "https://www.dell.com",
+    },
+    {
+      Name: "HP",
+      ContactName: "Business Sales",
+      Email: "sales@hp.example",
+      Phone: "+1 650-857-1501",
+      Address: "1501 Page Mill Road, Palo Alto, CA 94304, USA",
+      Website: "https://www.hp.com",
+    },
+    {
+      Name: "Lenovo",
+      ContactName: "Channel Partner Desk",
+      Email: "partners@lenovo.example",
+      Phone: "+86 10-5886-8888",
+      Address: "No. 6 Chuangye Road, Haidian District, Beijing, China",
+      Website: "https://www.lenovo.com",
+    },
+    {
+      Name: "Samsung",
+      ContactName: "B2B Inquiries",
+      Email: "b2b@samsung.example",
+      Phone: "+82 2-2255-0114",
+      Address: "129 Samsung-ro, Yeongtong-gu, Suwon, South Korea",
+      Website: "https://www.samsung.com",
+    },
+    {
+      Name: "Apple",
+      ContactName: "Enterprise Team",
+      Email: "enterprise@apple.example",
+      Phone: "+1 800-275-2273",
+      Address: "One Apple Park Way, Cupertino, CA 95014, USA",
+      Website: "https://www.apple.com",
+    },
+    {
+      Name: "Canon",
+      ContactName: "Imaging Support",
+      Email: "support@canon.example",
+      Phone: "+81 3-3758-2111",
+      Address: "30-2 Shimomaruko 3-chome, Ota-ku, Tokyo, Japan",
+      Website: "https://www.canon.com",
+    },
+    {
+      Name: "Cisco",
+      ContactName: "Partner Support",
+      Email: "partners@cisco.example",
+      Phone: "+1 408-526-4000",
+      Address: "170 West Tasman Drive, San Jose, CA 95134, USA",
+      Website: "https://www.cisco.com",
+    },
   ]);
   const countries = await insertNamed("countries", "CountryId", orgId, [
     "Bangladesh",

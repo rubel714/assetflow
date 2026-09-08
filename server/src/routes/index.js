@@ -11,6 +11,7 @@ const departmentsController = require("../controllers/departments.controller");
 const locationsController = require("../controllers/locations.controller");
 const projectsController = require("../controllers/projects.controller");
 const categoriesController = require("../controllers/categories.controller");
+const { suppliers: suppliersController, manufacturers: manufacturersController } = require("../controllers/contactDirectory.controller");
 
 router.use("/", authRoutes);
 
@@ -38,6 +39,14 @@ router.get("/categories", ...canSetup, categoriesController.list);
 router.post("/categories", ...canSetup, categoriesController.create);
 router.patch("/categories/:id", ...canSetup, categoriesController.update);
 router.delete("/categories/:id", ...canSetup, categoriesController.remove);
+router.get("/suppliers", ...canSetup, suppliersController.list);
+router.post("/suppliers", ...canSetup, suppliersController.create);
+router.patch("/suppliers/:id", ...canSetup, suppliersController.update);
+router.delete("/suppliers/:id", ...canSetup, suppliersController.remove);
+router.get("/manufacturers", ...canSetup, manufacturersController.list);
+router.post("/manufacturers", ...canSetup, manufacturersController.create);
+router.patch("/manufacturers/:id", ...canSetup, manufacturersController.update);
+router.delete("/manufacturers/:id", ...canSetup, manufacturersController.remove);
 
 router.get("/assets/export", requireAuth, requirePermission(PERMISSIONS.REPORTS_EXPORT), assetsController.exportCsv);
 router.get("/assets", requireAuth, requirePermission(PERMISSIONS.ASSETS_READ), assetsController.list);

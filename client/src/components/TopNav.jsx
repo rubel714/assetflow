@@ -117,7 +117,7 @@ export default function TopNav({ onLogout }) {
                 </svg>
               </button>
               {orgOpen && (
-                <div className="absolute left-0 top-full mt-2 min-w-[11rem] glass rounded-xl py-1 shadow-lg">
+                <div className="absolute left-0 top-full mt-2 min-w-[13rem] glass rounded-xl py-1 shadow-lg">
                   {ORG_SECTIONS.map((item) => (
                     <NavLink
                       key={item.key}

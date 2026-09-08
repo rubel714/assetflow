@@ -46,6 +46,21 @@ async function addFkIfMissing(conn, constraint, table, column, refTable, refColu
   );
 }
 
+async function ensureVendorContactColumns(conn) {
+  const contactColumns = [
+    ["ContactName", "VARCHAR(150) NULL"],
+    ["Email", "VARCHAR(150) NULL"],
+    ["Phone", "VARCHAR(50) NULL"],
+    ["Address", "VARCHAR(255) NULL"],
+    ["Website", "VARCHAR(200) NULL"],
+  ];
+  for (const table of ["suppliers", "manufacturers"]) {
+    for (const [column, definition] of contactColumns) {
+      await addColumnIfMissing(conn, table, column, definition);
+    }
+  }
+}
+
 async function ensureAssetLookupColumns(conn) {
   await addColumnIfMissing(conn, "assets", "SupplierId", "INT NULL");
   await addColumnIfMissing(conn, "assets", "ManufacturerId", "INT NULL");
@@ -89,6 +104,7 @@ async function migrate() {
     .trim();
   await root.query(sql);
 
+  await ensureVendorContactColumns(root);
   await ensureAssetLookupColumns(root);
 
   const { ROLES, PERMISSIONS, ROLE_PERMISSIONS } = require("../lib/permissions");

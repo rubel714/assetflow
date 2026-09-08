@@ -31,5 +31,21 @@ export const ORG_SECTIONS = [
     to: "/organization/categories",
     hint: "Types used to group assets in the register.",
   },
+  {
+    key: "manufacturers",
+    label: "Manufacturers",
+    singular: "manufacturer",
+    path: "/manufacturers",
+    to: "/organization/manufacturers",
+    hint: "Brands and makers linked to assets in the register.",
+  },
+  {
+    key: "suppliers",
+    label: "Suppliers",
+    singular: "supplier",
+    path: "/suppliers",
+    to: "/organization/suppliers",
+    hint: "Vendors that supply assets to the organization.",
+  },
 ];
 

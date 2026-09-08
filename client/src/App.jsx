@@ -12,6 +12,8 @@ import Departments from "./pages/Departments";
 import Locations from "./pages/Locations";
 import Projects from "./pages/Projects";
 import Categories from "./pages/Categories";
+import Manufacturers from "./pages/Manufacturers";
+import Suppliers from "./pages/Suppliers";
 import ConfirmDialog from "./components/ConfirmDialog";
 import Snackbar from "./components/Snackbar";
 
@@ -121,6 +123,22 @@ export default function App() {
             element={
               <Protected user={user} onLogout={handleLogout} permission="setup.manage">
                 <Categories />
+              </Protected>
+            }
+          />
+          <Route
+            path="/organization/manufacturers"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="setup.manage">
+                <Manufacturers />
+              </Protected>
+            }
+          />
+          <Route
+            path="/organization/suppliers"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="setup.manage">
+                <Suppliers />
               </Protected>
             }
           />
