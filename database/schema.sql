@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS assets (
   LastWarrantyDate DATE NULL,
   MaintenanceScheduleId INT NULL,
   Remarks TEXT NULL,
+  ImagePath VARCHAR(255) NULL,
   CurrentAssignmentId INT NULL,
   CreatedBy INT NULL,
   UpdatedBy INT NULL,

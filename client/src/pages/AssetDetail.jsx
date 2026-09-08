@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../lib/api";
 import { getSavedUser, hasPermission } from "../lib/globalfunction";
+import { assetImageSrc } from "../lib/assetImage";
 
 export default function AssetDetail() {
   const { id } = useParams();
@@ -40,7 +41,17 @@ export default function AssetDetail() {
   }
 
   if (error) {
-    return <p className="text-red-400">{error}</p>;
+    return (
+      <div className="space-y-4">
+        <p className="text-red-400">{error}</p>
+        <Link
+          to="/assets"
+          className="inline-flex px-4 py-2 rounded-xl border border-white/10 text-sm font-semibold hover:bg-white/5"
+        >
+          Back to assets
+        </Link>
+      </div>
+    );
   }
   if (!asset) {
     return <p className="text-muted">Loading…</p>;
@@ -52,19 +63,36 @@ export default function AssetDetail() {
   return (
     <div className="animate-enter space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-accent">{asset.AssetTag}</p>
-          <h2 className="text-2xl font-bold">{asset.Name}</h2>
-          <p className="text-muted text-sm mt-1">{asset.Description || "No description"}</p>
+        <div className="flex items-start gap-4 min-w-0">
+          <div className="h-20 w-20 rounded-2xl overflow-hidden border border-white/10 bg-black/20 flex items-center justify-center shrink-0">
+            {assetImageSrc(asset.ImageUrl) ? (
+              <img src={assetImageSrc(asset.ImageUrl)} alt={asset.Name} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-[10px] uppercase tracking-wider text-muted px-2 text-center">No image</span>
+            )}
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-widest text-accent">{asset.AssetTag}</p>
+            <h2 className="text-2xl font-bold">{asset.Name}</h2>
+            <p className="text-muted text-sm mt-1">{asset.Description || "No description"}</p>
+          </div>
         </div>
-        {canManage && (
+        <div className="flex gap-2 shrink-0">
           <Link
-            to={`/assets/${asset.AssetId}/edit`}
-            className="px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500"
+            to="/assets"
+            className="px-4 py-2 rounded-xl border border-white/10 text-sm font-semibold hover:bg-white/5"
           >
-            Edit
+            Back to assets
           </Link>
-        )}
+          {canManage && (
+            <Link
+              to={`/assets/${asset.AssetId}/edit`}
+              className="px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500"
+            >
+              Edit
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">

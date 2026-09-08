@@ -1,3 +1,4 @@
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -5,12 +6,15 @@ const allRoutes = require("./src/routes");
 const migrate = require("./src/scripts/migrate");
 const seed = require("./src/scripts/seed");
 const env = require("./src/config/env");
+const { ensureAssetsUploadDir } = require("./src/services/assetImage.service");
 
 const app = express();
 
+ensureAssetsUploadDir();
 app.use(cors({ origin: "*", credentials: true }));
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/", (req, res) => res.send("<h1>AssetFlow API is running</h1>"));
 

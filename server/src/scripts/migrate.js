@@ -69,6 +69,7 @@ async function ensureAssetLookupColumns(conn) {
   await addColumnIfMissing(conn, "assets", "LastWarrantyDate", "DATE NULL");
   await addColumnIfMissing(conn, "assets", "MaintenanceScheduleId", "INT NULL");
   await addColumnIfMissing(conn, "assets", "Remarks", "TEXT NULL");
+  await addColumnIfMissing(conn, "assets", "ImagePath", "VARCHAR(255) NULL");
   await addFkIfMissing(conn, "fk_assets_supplier", "assets", "SupplierId", "suppliers", "SupplierId");
   await addFkIfMissing(conn, "fk_assets_manufacturer", "assets", "ManufacturerId", "manufacturers", "ManufacturerId");
   await addFkIfMissing(conn, "fk_assets_country", "assets", "CountryOfOriginId", "countries", "CountryId");

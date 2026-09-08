@@ -6,7 +6,10 @@ export default function AssetForm({
   isEdit,
   saving,
   error,
+  imagePreview,
   onChange,
+  onImageSelect,
+  onImageRemove,
   onSubmit,
   onCancel,
 }) {
@@ -20,7 +23,7 @@ export default function AssetForm({
         <section className="glass rounded-2xl p-6 space-y-4">
           <div>
             <h3 className="text-sm font-semibold">Identity</h3>
-            <p className="text-muted text-xs mt-1">Name, category, and what this asset is.</p>
+            <p className="text-muted text-xs mt-1">Name, category, photo, and what this asset is.</p>
           </div>
           <div>
             <label className="input-label">Asset name</label>
@@ -32,9 +35,39 @@ export default function AssetForm({
               autoFocus
             />
           </div>
-          <div>
-            <label className="input-label">Description</label>
-            <textarea className="input-field" rows="4" value={form.description} onChange={update("description")} />
+          <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-start">
+            <div className="min-w-0">
+              <label className="input-label">Description</label>
+              <textarea className="input-field" rows="5" value={form.description} onChange={update("description")} />
+            </div>
+            <div className="w-full sm:w-36">
+              <label className="input-label">Asset image</label>
+              <label className="relative block h-[8.25rem] w-full sm:w-36 rounded-xl overflow-hidden border border-white/10 bg-black/20 cursor-pointer">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Asset" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] uppercase tracking-wider text-muted px-2 text-center">
+                    Click to upload
+                  </span>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  onChange={(e) => onImageSelect?.(e.target.files?.[0] || null)}
+                />
+              </label>
+              <p className="text-[11px] text-muted mt-1">JPEG, PNG, WebP, GIF. Max 5MB.</p>
+              {imagePreview && (
+                <button
+                  type="button"
+                  onClick={onImageRemove}
+                  className="mt-1 text-xs font-semibold text-red-400 hover:text-red-300"
+                >
+                  Remove image
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>

@@ -12,6 +12,7 @@ const locationsController = require("../controllers/locations.controller");
 const projectsController = require("../controllers/projects.controller");
 const categoriesController = require("../controllers/categories.controller");
 const { suppliers: suppliersController, manufacturers: manufacturersController } = require("../controllers/contactDirectory.controller");
+const { uploadAssetImage } = require("../middleware/assetImageUpload");
 
 router.use("/", authRoutes);
 
@@ -50,9 +51,9 @@ router.delete("/manufacturers/:id", ...canSetup, manufacturersController.remove)
 
 router.get("/assets/export", requireAuth, requirePermission(PERMISSIONS.REPORTS_EXPORT), assetsController.exportCsv);
 router.get("/assets", requireAuth, requirePermission(PERMISSIONS.ASSETS_READ), assetsController.list);
-router.post("/assets", requireAuth, requirePermission(PERMISSIONS.ASSETS_MANAGE), assetsController.create);
+router.post("/assets", requireAuth, requirePermission(PERMISSIONS.ASSETS_MANAGE), uploadAssetImage, assetsController.create);
 router.get("/assets/:id", requireAuth, requirePermission(PERMISSIONS.ASSETS_READ), assetsController.getOne);
-router.patch("/assets/:id", requireAuth, requirePermission(PERMISSIONS.ASSETS_MANAGE), assetsController.update);
+router.patch("/assets/:id", requireAuth, requirePermission(PERMISSIONS.ASSETS_MANAGE), uploadAssetImage, assetsController.update);
 router.post("/assets/:id/assign", requireAuth, requirePermission(PERMISSIONS.ASSETS_ASSIGN), assetsController.assign);
 router.post("/assets/:id/transfer", requireAuth, requirePermission(PERMISSIONS.ASSETS_ASSIGN), assetsController.transfer);
 router.post("/assets/:id/return", requireAuth, requirePermission(PERMISSIONS.ASSETS_ASSIGN), assetsController.returnAsset);

@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { writeAudit, writeLifecycle } = require("../services/audit.service");
-const { ASSET_SELECT, nextAssetTag, getAsset, canAssignStatus } = require("../services/asset.service");
+const { ASSET_SELECT, nextAssetTag, getAsset, attachImageUrl, canAssignStatus } = require("../services/asset.service");
+const { relativeImagePath, deleteImageFile } = require("../services/assetImage.service");
 const { ASSET_STATUSES } = require("../lib/permissions");
 const { isEmployee } = require("../middleware/auth");
 
@@ -60,6 +61,20 @@ async function validateRefs(fields, organizationId) {
   return null;
 }
 
+function wantsImageRemoved(body) {
+  return body.removeImage === true || body.removeImage === "true" || body.removeImage === "1";
+}
+
+function uploadedImagePath(req) {
+  if (!req.file) return null;
+  return relativeImagePath(req.user.OrganizationId, req.file.filename);
+}
+
+function discardUploadedFile(req) {
+  const imagePath = uploadedImagePath(req);
+  if (imagePath) deleteImageFile(imagePath);
+}
+
 const list = async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -110,7 +125,7 @@ const list = async (req, res) => {
       page,
       pageSize,
       total: countRows[0].total,
-      assets: rows,
+      assets: rows.map(attachImageUrl),
     });
   } catch (error) {
     console.error(error);
@@ -149,13 +164,16 @@ const create = async (req, res) => {
   try {
     const fields = parseAssetBody(req.body);
     if (!fields.Name) {
+      discardUploadedFile(req);
       return res.status(400).json({ status: false, message: "Asset name is required" });
     }
     const refError = await validateRefs(fields, req.user.OrganizationId);
     if (refError) {
+      discardUploadedFile(req);
       return res.status(400).json({ status: false, message: refError });
     }
 
+    const imagePath = uploadedImagePath(req);
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
@@ -165,8 +183,8 @@ const create = async (req, res) => {
           (OrganizationId, AssetTag, Name, Description, CategoryId, Brand, Model,
            SerialNumber, PurchaseDate, PurchaseCost, Status, LocationId, DepartmentId,
            ProjectId, SupplierId, ManufacturerId, CountryOfOriginId, ReceiveDate,
-           LastWarrantyDate, MaintenanceScheduleId, Remarks, CreatedBy, UpdatedBy)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Available', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           LastWarrantyDate, MaintenanceScheduleId, Remarks, ImagePath, CreatedBy, UpdatedBy)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Available', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.user.OrganizationId,
           tag,
@@ -188,6 +206,7 @@ const create = async (req, res) => {
           fields.LastWarrantyDate,
           fields.MaintenanceScheduleId,
           fields.Remarks,
+          imagePath,
           req.user.UserId,
           req.user.UserId,
         ]
@@ -206,13 +225,14 @@ const create = async (req, res) => {
         action: "asset.create",
         entityType: "asset",
         entityId: result.insertId,
-        after: { ...fields, AssetTag: tag },
+        after: { ...fields, AssetTag: tag, ImagePath: imagePath },
       });
       await conn.commit();
       const asset = await getAsset(req.user.OrganizationId, result.insertId);
       res.status(201).json({ status: true, asset });
     } catch (err) {
       await conn.rollback();
+      if (imagePath) deleteImageFile(imagePath);
       throw err;
     } finally {
       conn.release();
@@ -228,30 +248,37 @@ const update = async (req, res) => {
     const assetId = Number(req.params.id);
     const current = await getAsset(req.user.OrganizationId, assetId);
     if (!current) {
+      discardUploadedFile(req);
       return res.status(404).json({ status: false, message: "Asset not found" });
     }
 
     const fields = parseAssetBody(req.body);
     if (!fields.Name) {
+      discardUploadedFile(req);
       return res.status(400).json({ status: false, message: "Asset name is required" });
     }
     const refError = await validateRefs(fields, req.user.OrganizationId);
     if (refError) {
+      discardUploadedFile(req);
       return res.status(400).json({ status: false, message: refError });
     }
 
     let nextStatus = current.Status;
     if (req.body.status && req.body.status !== current.Status) {
       if (!ASSET_STATUSES.includes(req.body.status)) {
+        discardUploadedFile(req);
         return res.status(400).json({ status: false, message: "Invalid status" });
       }
       if (req.body.status === "Retired" && req.user.RoleKey !== "organization_admin") {
+        discardUploadedFile(req);
         return res.status(403).json({ status: false, message: "Only an organization admin can retire an asset" });
       }
       if (req.body.status === "Assigned") {
+        discardUploadedFile(req);
         return res.status(400).json({ status: false, message: "Use assign or transfer to set Assigned status" });
       }
       if (current.Status === "Assigned" && ["Damaged", "Lost", "Retired"].includes(req.body.status)) {
+        discardUploadedFile(req);
         return res.status(400).json({
           status: false,
           message: "Return the asset before marking it damaged, lost, or retired",
@@ -260,13 +287,20 @@ const update = async (req, res) => {
       nextStatus = req.body.status;
     }
 
+    let imagePath = current.ImagePath || null;
+    if (req.file) {
+      imagePath = uploadedImagePath(req);
+    } else if (wantsImageRemoved(req.body)) {
+      imagePath = null;
+    }
+
     await db.query(
       `UPDATE assets SET
         Name = ?, Description = ?, CategoryId = ?, Brand = ?, Model = ?,
         SerialNumber = ?, PurchaseDate = ?, PurchaseCost = ?, Status = ?,
         LocationId = ?, DepartmentId = ?, ProjectId = ?, SupplierId = ?,
         ManufacturerId = ?, CountryOfOriginId = ?, ReceiveDate = ?,
-        LastWarrantyDate = ?, MaintenanceScheduleId = ?, Remarks = ?, UpdatedBy = ?
+        LastWarrantyDate = ?, MaintenanceScheduleId = ?, Remarks = ?, ImagePath = ?, UpdatedBy = ?
        WHERE AssetId = ? AND OrganizationId = ?`,
       [
         fields.Name,
@@ -288,11 +322,16 @@ const update = async (req, res) => {
         fields.LastWarrantyDate,
         fields.MaintenanceScheduleId,
         fields.Remarks,
+        imagePath,
         req.user.UserId,
         assetId,
         req.user.OrganizationId,
       ]
     );
+
+    if (imagePath !== (current.ImagePath || null) && current.ImagePath) {
+      deleteImageFile(current.ImagePath);
+    }
 
     if (nextStatus !== current.Status) {
       await writeLifecycle(db, {

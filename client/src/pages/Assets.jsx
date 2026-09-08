@@ -6,6 +6,8 @@ import { getSavedUser, getToken, hasPermission } from "../lib/globalfunction";
 import DataGrid from "../components/DataGrid";
 import GridActionsCell from "../components/GridActionsCell";
 import AssetForm from "../components/AssetForm";
+import ImageLightbox from "../components/ImageLightbox";
+import { assetImageSrc } from "../lib/assetImage";
 
 const emptyForm = {
   name: "",
@@ -61,6 +63,32 @@ function formFromAsset(a) {
   };
 }
 
+function ImageCell(params) {
+  const row = params?.data;
+  const src = assetImageSrc(row?.ImageUrl);
+  if (!src) {
+    return <span className="text-muted text-xs">—</span>;
+  }
+  return (
+    <button
+      type="button"
+      className="block h-10 w-10 rounded-lg overflow-hidden border border-white/10 my-1 cursor-pointer hover:ring-2 hover:ring-cyan-400/70"
+      title="View image"
+      aria-label={`View image for ${row?.Name || row?.AssetTag || "asset"}`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        params?.context?.onPreviewImage?.({
+          src,
+          alt: row?.Name || row?.AssetTag || "Asset image",
+        });
+      }}
+    >
+      <img src={src} alt="" className="h-full w-full object-cover pointer-events-none" />
+    </button>
+  );
+}
+
 function TagCell(params) {
   const row = params?.data;
   if (!row?.AssetId) return params.value || "";
@@ -93,9 +121,13 @@ export default function Assets() {
   });
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [removeImage, setRemoveImage] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const view = addMatch ? "add" : editMatch ? "edit" : "list";
   const isForm = view === "add" || view === "edit";
@@ -137,6 +169,9 @@ export default function Assets() {
     if (view === "add") {
       setEditing(null);
       setForm(emptyForm);
+      setImageFile(null);
+      setImagePreview("");
+      setRemoveImage(false);
       setError("");
       return;
     }
@@ -148,6 +183,9 @@ export default function Assets() {
           const a = res.data.asset;
           setEditing(a);
           setForm(formFromAsset(a));
+          setImageFile(null);
+          setRemoveImage(false);
+          setImagePreview(assetImageSrc(a.ImageUrl));
         })
         .catch((err) => setError(err.response?.data?.message || "Could not load asset"));
     }
@@ -177,8 +215,33 @@ export default function Assets() {
     [navigate]
   );
 
+  const showPreview = useCallback((image) => {
+    setPreviewImage(image);
+  }, []);
+
+  const gridContext = useMemo(
+    () => ({
+      onPreviewImage: showPreview,
+      ...(canManage ? { onEdit: showEdit } : {}),
+    }),
+    [canManage, showEdit, showPreview]
+  );
+
   function updateField(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function handleImageSelect(file) {
+    if (!file) return;
+    setImageFile(file);
+    setRemoveImage(false);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function handleImageRemove() {
+    setImageFile(null);
+    setRemoveImage(true);
+    setImagePreview("");
   }
 
   async function handleSubmit(e) {
@@ -189,25 +252,31 @@ export default function Assets() {
     }
     setSaving(true);
     setError("");
-    const payload = {
+    const data = new FormData();
+    const fields = {
       ...form,
-      categoryId: form.categoryId || null,
-      locationId: form.locationId || null,
-      departmentId: form.departmentId || null,
-      projectId: form.projectId || null,
-      supplierId: form.supplierId || null,
-      manufacturerId: form.manufacturerId || null,
-      countryOfOriginId: form.countryOfOriginId || null,
-      maintenanceScheduleId: form.maintenanceScheduleId || null,
-      purchaseCost: form.purchaseCost === "" ? null : form.purchaseCost,
-      receiveDate: form.receiveDate || null,
-      lastWarrantyDate: form.lastWarrantyDate || null,
+      categoryId: form.categoryId || "",
+      locationId: form.locationId || "",
+      departmentId: form.departmentId || "",
+      projectId: form.projectId || "",
+      supplierId: form.supplierId || "",
+      manufacturerId: form.manufacturerId || "",
+      countryOfOriginId: form.countryOfOriginId || "",
+      maintenanceScheduleId: form.maintenanceScheduleId || "",
+      purchaseCost: form.purchaseCost === "" ? "" : form.purchaseCost,
+      receiveDate: form.receiveDate || "",
+      lastWarrantyDate: form.lastWarrantyDate || "",
     };
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) data.append(key, value);
+    });
+    if (imageFile) data.append("image", imageFile);
+    if (removeImage && !imageFile) data.append("removeImage", "true");
     try {
       if (view === "edit" && (editing?.AssetId || id)) {
-        await api.patch(`/assets/${editing?.AssetId || id}`, payload);
+        await api.patch(`/assets/${editing?.AssetId || id}`, data);
       } else {
-        await api.post("/assets", payload);
+        await api.post("/assets", data);
       }
       await loadList();
       showList();
@@ -240,6 +309,17 @@ export default function Assets() {
 
   const columnDefs = useMemo(() => {
     const cols = [
+      {
+        field: "ImageUrl",
+        headerName: "Image",
+        minWidth: 88,
+        maxWidth: 100,
+        flex: 0,
+        sortable: false,
+        filter: false,
+        floatingFilter: false,
+        cellRenderer: ImageCell,
+      },
       {
         field: "AssetTag",
         headerName: "Tag",
@@ -359,7 +439,10 @@ export default function Assets() {
           isEdit={view === "edit"}
           saving={saving}
           error={error}
+          imagePreview={imagePreview}
           onChange={updateField}
+          onImageSelect={handleImageSelect}
+          onImageRemove={handleImageRemove}
           onSubmit={handleSubmit}
           onCancel={showList}
         />
@@ -369,11 +452,17 @@ export default function Assets() {
         <DataGrid
           rowData={assets}
           columnDefs={columnDefs}
+          rowHeight={52}
           getRowId={(params) => String(params.data?.AssetId ?? params.data?.id ?? "")}
           emptyMessage="No assets yet."
-          context={canManage ? { onEdit: showEdit } : {}}
+          context={gridContext}
         />
       )}
+      <ImageLightbox
+        src={previewImage?.src}
+        alt={previewImage?.alt}
+        onClose={() => setPreviewImage(null)}
+      />
     </div>
   );
 }

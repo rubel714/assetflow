@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { attachImageUrl } = require("./assetImage.service");
 
 const ASSET_SELECT = `
   SELECT
@@ -6,7 +7,7 @@ const ASSET_SELECT = `
     a.Brand, a.Model, a.SerialNumber, a.PurchaseDate, a.PurchaseCost, a.Status,
     a.LocationId, a.DepartmentId, a.ProjectId, a.CurrentAssignmentId,
     a.SupplierId, a.ManufacturerId, a.CountryOfOriginId, a.ReceiveDate,
-    a.LastWarrantyDate, a.MaintenanceScheduleId, a.Remarks,
+    a.LastWarrantyDate, a.MaintenanceScheduleId, a.Remarks, a.ImagePath,
     a.CreatedAt, a.UpdatedAt,
     c.Name AS CategoryName,
     l.Name AS LocationName,
@@ -50,7 +51,7 @@ async function getAsset(organizationId, assetId, conn) {
     `${ASSET_SELECT} WHERE a.OrganizationId = ? AND a.AssetId = ? LIMIT 1`,
     [organizationId, assetId]
   );
-  return rows[0] || null;
+  return attachImageUrl(rows[0] || null);
 }
 
 function canAssignStatus(status) {
@@ -61,5 +62,6 @@ module.exports = {
   ASSET_SELECT,
   nextAssetTag,
   getAsset,
+  attachImageUrl,
   canAssignStatus,
 };

@@ -34,6 +34,7 @@ export default function DataGrid({
   emptyMessage = "No rows to show.",
   onCellClicked,
   context,
+  rowHeight,
 }) {
   const gridRef = useRef(null);
   const [popupParent, setPopupParent] = useState(null);
@@ -125,6 +126,7 @@ export default function DataGrid({
           columnDefs={mergedColumnDefs}
           defaultColDef={defaultColDef}
           getRowId={getRowId}
+          rowHeight={rowHeight}
           popupParent={popupParent || undefined}
           domLayout="autoHeight"
           animateRows={false}
