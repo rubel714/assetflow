@@ -7,27 +7,37 @@ const usersController = require("../controllers/users.controller");
 const lookupsController = require("../controllers/lookups.controller");
 const assetsController = require("../controllers/assets.controller");
 const dashboardController = require("../controllers/dashboard.controller");
+const organizationController = require("../controllers/organization.controller");
+const auditLogsController = require("../controllers/auditLogs.controller");
 const departmentsController = require("../controllers/departments.controller");
+const designationsController = require("../controllers/designations.controller");
 const locationsController = require("../controllers/locations.controller");
 const projectsController = require("../controllers/projects.controller");
 const categoriesController = require("../controllers/categories.controller");
 const { suppliers: suppliersController, manufacturers: manufacturersController } = require("../controllers/contactDirectory.controller");
-const { uploadAssetImage } = require("../middleware/assetImageUpload");
+const { uploadAssetImage, uploadUserImage } = require("../middleware/assetImageUpload");
 
 router.use("/", authRoutes);
 
 router.get("/dashboard", requireAuth, requirePermission(PERMISSIONS.DASHBOARD_READ), dashboardController.summary);
 router.get("/lookups", requireAuth, lookupsController.list);
+router.get("/organization", requireAuth, requirePermission(PERMISSIONS.ORG_MANAGE), organizationController.get);
+router.patch("/organization", requireAuth, requirePermission(PERMISSIONS.ORG_MANAGE), organizationController.update);
+router.get("/audit-logs", requireAuth, requirePermission(PERMISSIONS.SETUP_MANAGE), auditLogsController.list);
 
 router.get("/users", requireAuth, requirePermission(PERMISSIONS.USERS_READ), usersController.list);
-router.post("/users", requireAuth, requirePermission(PERMISSIONS.USERS_MANAGE), usersController.create);
-router.patch("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_MANAGE), usersController.update);
+router.post("/users", requireAuth, requirePermission(PERMISSIONS.USERS_MANAGE), uploadUserImage, usersController.create);
+router.patch("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_MANAGE), uploadUserImage, usersController.update);
 
 const canSetup = [requireAuth, requirePermission(PERMISSIONS.SETUP_MANAGE)];
 router.get("/departments", ...canSetup, departmentsController.list);
 router.post("/departments", ...canSetup, departmentsController.create);
 router.patch("/departments/:id", ...canSetup, departmentsController.update);
 router.delete("/departments/:id", ...canSetup, departmentsController.remove);
+router.get("/designations", ...canSetup, designationsController.list);
+router.post("/designations", ...canSetup, designationsController.create);
+router.patch("/designations/:id", ...canSetup, designationsController.update);
+router.delete("/designations/:id", ...canSetup, designationsController.remove);
 router.get("/locations", ...canSetup, locationsController.list);
 router.post("/locations", ...canSetup, locationsController.create);
 router.patch("/locations/:id", ...canSetup, locationsController.update);

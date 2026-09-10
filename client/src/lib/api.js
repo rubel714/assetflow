@@ -1,8 +1,9 @@
 import axios from "axios";
+import { API_BASE } from "./apiBase";
 import { getToken, clearAuth } from "./globalfunction";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: API_BASE,
 });
 
 api.interceptors.request.use((config) => {

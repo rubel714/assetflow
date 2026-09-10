@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { saveAuth } from "../lib/globalfunction";
+import { API_BASE } from "../lib/apiBase";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../lib/ThemeContext";
 import ThemeToggle from "../components/ThemeToggle";
+import { showSnackbar } from "../lib/snackbar";
 
 export default function LoginPage({ onLogin }) {
   const navigate = useNavigate();
@@ -11,21 +13,19 @@ export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      setMessage("Please fill in all fields");
+      showSnackbar("Please fill in all fields", { type: "validation" });
       return;
     }
 
     setLoading(true);
-    setMessage("");
 
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/login`,
+        `${API_BASE}/login`,
         { username: username.trim(), password }
       );
 
@@ -34,16 +34,16 @@ export default function LoginPage({ onLogin }) {
         if (typeof onLogin === "function") {
           onLogin(response.data.user);
         }
+        showSnackbar("Signed in successfully");
         navigate("/");
       } else {
-        setMessage(response.data.message || "Login failed");
+        showSnackbar(response.data.message || "Login failed", { type: "error" });
       }
     } catch (err) {
-      const errMsg =
-        err?.response?.data?.message ||
-        err.message ||
-        "Login failed. Please try again.";
-      setMessage(errMsg);
+      showSnackbar(
+        err?.response?.data?.message || err.message || "Login failed. Please try again.",
+        { type: "error" }
+      );
     } finally {
       setLoading(false);
     }
@@ -208,9 +208,6 @@ export default function LoginPage({ onLogin }) {
                 />
               </svg>
             </button>
-            {message && (
-              <p className="mt-2 text-sm text-center text-red-400">{message}</p>
-            )}
             <p className="pt-2 text-center text-[10px] text-muted opacity-50">v1.0.0</p>
             </div>
           </div>

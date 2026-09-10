@@ -19,6 +19,9 @@ const summary = async (req, res) => {
           totalAssets: assigned[0].c,
           assigned: assigned[0].c,
           available: 0,
+          damaged: 0,
+          lost: 0,
+          retired: 0,
           users: 1,
         },
       });
@@ -28,7 +31,10 @@ const summary = async (req, res) => {
       `SELECT
          COUNT(*) AS totalAssets,
          SUM(Status = 'Assigned') AS assigned,
-         SUM(Status = 'Available') AS available
+         SUM(Status = 'Available') AS available,
+         SUM(Status = 'Damaged') AS damaged,
+         SUM(Status = 'Lost') AS lost,
+         SUM(Status = 'Retired') AS retired
        FROM assets
        WHERE OrganizationId = ?`,
       [orgId]
@@ -44,6 +50,9 @@ const summary = async (req, res) => {
         totalAssets: Number(totals[0].totalAssets || 0),
         assigned: Number(totals[0].assigned || 0),
         available: Number(totals[0].available || 0),
+        damaged: Number(totals[0].damaged || 0),
+        lost: Number(totals[0].lost || 0),
+        retired: Number(totals[0].retired || 0),
         users: Number(users[0].c || 0),
       },
     });

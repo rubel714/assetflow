@@ -3,6 +3,8 @@ const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const env = require("../config/env");
 
+const { publicUserImageUrl } = require("../services/userImage.service");
+
 function toPublicUser(user, permissions) {
   return {
     UserId: user.UserId,
@@ -11,6 +13,7 @@ function toPublicUser(user, permissions) {
     Role: user.RoleKey,
     OrganizationId: user.OrganizationId,
     OrganizationName: user.OrganizationName || null,
+    ImageUrl: publicUserImageUrl(user.ImagePath),
     permissions,
   };
 }
@@ -28,7 +31,7 @@ const login = async (req, res) => {
     }
 
     const [rows] = await db.query(
-      `SELECT u.UserId, u.Username, u.Password, u.FullName, u.RoleKey, u.Status,
+      `SELECT u.UserId, u.Username, u.Password, u.FullName, u.RoleKey, u.Status, u.ImagePath,
               u.OrganizationId, o.Name AS OrganizationName
        FROM users u
        LEFT JOIN organizations o ON o.OrganizationId = u.OrganizationId

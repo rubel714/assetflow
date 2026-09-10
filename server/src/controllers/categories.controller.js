@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { auditSetup, getOrgRow } = require("../services/setupAudit.service");
 
 const list = async (req, res) => {
   try {
@@ -26,6 +27,12 @@ const create = async (req, res) => {
       "INSERT INTO asset_categories (OrganizationId, Name) VALUES (?, ?)",
       [req.user.OrganizationId, name]
     );
+    await auditSetup(req, {
+      action: "category.create",
+      entityType: "category",
+      entityId: result.insertId,
+      after: { Name: name },
+    });
     res.status(201).json({
       status: true,
       category: { CategoryId: result.insertId, Name: name },
@@ -46,13 +53,21 @@ const update = async (req, res) => {
     if (!name) {
       return res.status(400).json({ status: false, message: "Category name is required" });
     }
-    const [result] = await db.query(
+    const current = await getOrgRow("asset_categories", "CategoryId", id, req.user.OrganizationId);
+    if (!current) {
+      return res.status(404).json({ status: false, message: "Category not found" });
+    }
+    await db.query(
       "UPDATE asset_categories SET Name = ? WHERE CategoryId = ? AND OrganizationId = ?",
       [name, id, req.user.OrganizationId]
     );
-    if (!result.affectedRows) {
-      return res.status(404).json({ status: false, message: "Category not found" });
-    }
+    await auditSetup(req, {
+      action: "category.update",
+      entityType: "category",
+      entityId: id,
+      before: { Name: current.Name },
+      after: { Name: name },
+    });
     res.json({ status: true, category: { CategoryId: id, Name: name } });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
@@ -66,6 +81,10 @@ const update = async (req, res) => {
 const remove = async (req, res) => {
   try {
     const id = Number(req.params.id);
+    const current = await getOrgRow("asset_categories", "CategoryId", id, req.user.OrganizationId);
+    if (!current) {
+      return res.status(404).json({ status: false, message: "Category not found" });
+    }
     const [used] = await db.query(
       "SELECT AssetId FROM assets WHERE OrganizationId = ? AND CategoryId = ? LIMIT 1",
       [req.user.OrganizationId, id]
@@ -73,13 +92,16 @@ const remove = async (req, res) => {
     if (used.length) {
       return res.status(409).json({ status: false, message: "This category is used by an asset" });
     }
-    const [result] = await db.query(
+    await db.query(
       "DELETE FROM asset_categories WHERE CategoryId = ? AND OrganizationId = ?",
       [id, req.user.OrganizationId]
     );
-    if (!result.affectedRows) {
-      return res.status(404).json({ status: false, message: "Category not found" });
-    }
+    await auditSetup(req, {
+      action: "category.delete",
+      entityType: "category",
+      entityId: id,
+      before: { Name: current.Name },
+    });
     res.json({ status: true });
   } catch (error) {
     console.error(error);

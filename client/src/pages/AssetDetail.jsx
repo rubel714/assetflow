@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import api from "../lib/api";
 import { getSavedUser, hasPermission } from "../lib/globalfunction";
 import { assetImageSrc } from "../lib/assetImage";
+import { showSnackbar } from "../lib/snackbar";
 
 export default function AssetDetail() {
   const { id } = useParams();
@@ -12,38 +13,43 @@ export default function AssetDetail() {
   const [users, setUsers] = useState([]);
   const [userId, setUserId] = useState("");
   const [notes, setNotes] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
 
   function load() {
     return api.get(`/assets/${id}`).then((res) => {
       setAsset(res.data.asset);
       setHistory(res.data.history || []);
+      setLoadFailed(false);
     });
   }
 
   useEffect(() => {
-    load().catch((err) => setError(err.response?.data?.message || "Could not load asset"));
+    load().catch(() => {
+      setLoadFailed(true);
+    });
     api.get("/lookups").then((res) => setUsers(res.data.users || [])).catch(() => {});
   }, [id]);
 
   async function runAction(path) {
-    setMessage("");
+    if ((path === "assign" || path === "transfer") && !userId) {
+      showSnackbar("Select an employee first", { type: "validation" });
+      return;
+    }
     try {
       await api.post(`/assets/${id}/${path}`, { userId, notes });
       setNotes("");
       setUserId("");
       await load();
-      setMessage("Saved.");
+      showSnackbar("Data saved successfully");
     } catch (err) {
-      setMessage(err.response?.data?.message || "Action failed");
+      showSnackbar(err.response?.data?.message || "Action failed", { type: "error" });
     }
   }
 
-  if (error) {
+  if (loadFailed) {
     return (
       <div className="space-y-4">
-        <p className="text-red-400">{error}</p>
+        <p className="text-muted">This asset could not be loaded.</p>
         <Link
           to="/assets"
           className="inline-flex px-4 py-2 rounded-xl border border-white/10 text-sm font-semibold hover:bg-white/5"
@@ -164,7 +170,6 @@ export default function AssetDetail() {
               Return
             </button>
           </div>
-          {message && <p className="text-sm text-cyan-300">{message}</p>}
         </div>
       )}
 

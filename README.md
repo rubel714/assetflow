@@ -33,6 +33,16 @@ The web app is at `http://localhost:3000`.
 
 Log out and sign in again if you used the previous login shell; Phase 1 uses a JWT.
 
+## Tests
+
+From `server/`:
+
+```bash
+npm test
+```
+
+These checks cover tenant isolation, role permissions, organization settings, and Assigned → Damaged without a prior return.
+
 ## Environment
 
 See `server/.env.example`. Client uses `client/.env` (`VITE_API_URL`).

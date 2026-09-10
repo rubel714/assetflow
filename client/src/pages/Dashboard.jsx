@@ -5,7 +5,7 @@ import { getSavedUser, roleLabel } from "../lib/globalfunction";
 export default function Dashboard() {
   const user = getSavedUser();
   const [summary, setSummary] = useState(null);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -14,20 +14,27 @@ export default function Dashboard() {
       .then((res) => {
         if (!cancelled) setSummary(res.data.summary);
       })
-      .catch((err) => {
-        if (!cancelled) setError(err.response?.data?.message || "Could not load dashboard");
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const cards = [
-    { label: "Total Assets", value: summary?.totalAssets },
-    { label: user?.Role === "employee" ? "Assigned to me" : "Assigned", value: summary?.assigned },
-    { label: "Available", value: summary?.available },
-    { label: "Users", value: summary?.users },
-  ];
+  const isEmployee = user?.Role === "employee";
+  const cards = isEmployee
+    ? [{ label: "Assigned to me", value: summary?.assigned }]
+    : [
+        { label: "Total Assets", value: summary?.totalAssets },
+        { label: "Assigned", value: summary?.assigned },
+        { label: "Available", value: summary?.available },
+        { label: "Damaged", value: summary?.damaged },
+        { label: "Lost", value: summary?.lost },
+        { label: "Retired", value: summary?.retired },
+        { label: "Users", value: summary?.users },
+      ];
 
   return (
     <div className="animate-enter space-y-6">
@@ -57,18 +64,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {loading && <p className="text-muted">Loading dashboard…</p>}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((card) => (
-          <div key={card.label} className="glass rounded-2xl p-5">
-            <p className="text-xs uppercase tracking-widest text-muted">{card.label}</p>
-            <p className="text-3xl font-bold mt-2 text-accent">
-              {summary ? card.value ?? 0 : "—"}
-            </p>
-          </div>
-        ))}
-      </div>
+      {!loading && (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {cards.map((card) => (
+            <div key={card.label} className="glass rounded-2xl p-5">
+              <p className="text-xs uppercase tracking-widest text-muted">{card.label}</p>
+              <p className="text-3xl font-bold mt-2 text-accent">
+                {summary ? card.value ?? 0 : "—"}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

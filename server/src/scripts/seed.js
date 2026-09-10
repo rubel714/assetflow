@@ -199,6 +199,25 @@ async function seed() {
     ROLES.EMPLOYEE
   );
 
+  await insertNamed("designations", "DesignationId", orgId, [
+    "Accountant",
+    "Administrator",
+    "Analyst",
+    "Assistant Manager",
+    "Coordinator",
+    "Director",
+    "Engineer",
+    "Executive",
+    "General Manager",
+    "HR Officer",
+    "IT Officer",
+    "Manager",
+    "Officer",
+    "Operator",
+    "Store Keeper",
+    "Supervisor",
+    "Technician",
+  ]);
   const departments = await insertNamed("departments", "DepartmentId", orgId, [
     "Information Technology",
     "Finance and Accounts",

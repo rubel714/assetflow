@@ -6,8 +6,8 @@ import { pickList } from "../lib/setupLists";
 import DataGrid from "../components/DataGrid";
 import GridActionsCell from "../components/GridActionsCell";
 
-export default function Categories() {
-  const [categories, setCategories] = useState([]);
+export default function Designations() {
+  const [designations, setDesignations] = useState([]);
   const [view, setView] = useState("list");
   const [editing, setEditing] = useState(null);
   const [name, setName] = useState("");
@@ -15,7 +15,7 @@ export default function Categories() {
   const [loading, setLoading] = useState(true);
 
   function load() {
-    return api.get("/categories").then((res) => setCategories(pickList(res.data, "categories")));
+    return api.get("/designations").then((res) => setDesignations(pickList(res.data, "designations")));
   }
 
   useEffect(() => {
@@ -52,22 +52,22 @@ export default function Categories() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!name.trim()) {
-      showSnackbar("Category name is required", { type: "validation" });
+      showSnackbar("Designation name is required", { type: "validation" });
       return;
     }
     setSaving(true);
     try {
       const isUpdate = view === "edit" && editing;
       if (isUpdate) {
-        await api.patch(`/categories/${editing.CategoryId}`, { name: name.trim() });
+        await api.patch(`/designations/${editing.DesignationId}`, { name: name.trim() });
       } else {
-        await api.post("/categories", { name: name.trim() });
+        await api.post("/designations", { name: name.trim() });
       }
       await load();
       showList();
       showSnackbar(isUpdate ? "Data updated successfully" : "Data saved successfully");
     } catch (err) {
-      showSnackbar(err.response?.data?.message || "Could not save category", { type: "error" });
+      showSnackbar(err.response?.data?.message || "Could not save designation", { type: "error" });
     } finally {
       setSaving(false);
     }
@@ -75,17 +75,17 @@ export default function Categories() {
 
   const handleDelete = useCallback(async (row) => {
     const ok = await confirmAction({
-      title: "Delete category?",
+      title: "Delete designation?",
       message: `“${row.Name}” will be removed. This cannot be undone.`,
       confirmLabel: "Delete",
     });
     if (!ok) return;
     try {
-      await api.delete(`/categories/${row.CategoryId}`);
+      await api.delete(`/designations/${row.DesignationId}`);
       await load();
       showSnackbar("Data deleted successfully");
     } catch (err) {
-      showSnackbar(err.response?.data?.message || "Could not delete category", { type: "error" });
+      showSnackbar(err.response?.data?.message || "Could not delete designation", { type: "error" });
     }
   }, []);
 
@@ -120,14 +120,14 @@ export default function Categories() {
         <div>
           <p className="text-xs uppercase tracking-widest text-muted">Organization</p>
           <h2 className="text-2xl font-bold">
-            {view === "add" ? "Add Category" : view === "edit" ? "Edit Category" : "Categories"}
+            {view === "add" ? "Add Designation" : view === "edit" ? "Edit Designation" : "Designations"}
           </h2>
           <p className="text-muted text-sm mt-1">
             {isForm
               ? view === "edit"
-                ? "Update this category name."
-                : "Create a new category."
-              : "Types used to group assets in the register."}
+                ? "Update this designation name."
+                : "Create a job title used when adding users."
+              : "Job titles that can be assigned to users."}
           </p>
         </div>
         {view === "list" && (
@@ -144,10 +144,10 @@ export default function Categories() {
       {isForm ? (
         <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4 max-w-xl">
           <div>
-            <label className="input-label">Category name</label>
+            <label className="input-label">Designation name</label>
             <input
               className="input-field"
-              placeholder="Laptop, Vehicle, Furniture..."
+              placeholder="Manager, Engineer, Officer..."
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
@@ -159,7 +159,7 @@ export default function Categories() {
               disabled={saving}
               className="px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold disabled:opacity-50"
             >
-              {saving ? "Saving…" : view === "edit" ? "Save changes" : "Save category"}
+              {saving ? "Saving…" : view === "edit" ? "Save changes" : "Save designation"}
             </button>
             <button
               type="button"
@@ -171,13 +171,13 @@ export default function Categories() {
           </div>
         </form>
       ) : loading ? (
-        <p className="text-muted">Loading categories…</p>
+        <p className="text-muted">Loading designations…</p>
       ) : (
         <DataGrid
-          rowData={categories}
+          rowData={designations}
           columnDefs={columnDefs}
-          getRowId={(params) => String(params.data?.CategoryId ?? params.data?.id ?? "")}
-          emptyMessage="No categories yet."
+          getRowId={(params) => String(params.data?.DesignationId ?? params.data?.id ?? "")}
+          emptyMessage="No designations yet."
           context={{ onEdit: showEdit, onDelete: handleDelete }}
         />
       )}

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
 import { confirmAction } from "../lib/confirm";
+import { showSnackbar } from "../lib/snackbar";
 import { pickList } from "../lib/setupLists";
 import DataGrid from "../components/DataGrid";
 import GridActionsCell from "../components/GridActionsCell";
@@ -11,15 +12,17 @@ export default function Projects() {
   const [editing, setEditing] = useState(null);
   const [name, setName] = useState("");
   const [status, setStatus] = useState("active");
-  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function load() {
     return api.get("/projects").then((res) => setProjects(pickList(res.data, "projects")));
   }
 
   useEffect(() => {
-    load().catch((err) => setError(err.response?.data?.message || "Could not load projects"));
+    load()
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   function showList() {
@@ -27,7 +30,6 @@ export default function Projects() {
     setEditing(null);
     setName("");
     setStatus("active");
-    setError("");
   }
 
   function showAdd() {
@@ -35,7 +37,6 @@ export default function Projects() {
     setEditing(null);
     setName("");
     setStatus("active");
-    setError("");
   }
 
   const showEdit = useCallback(async (row) => {
@@ -50,19 +51,18 @@ export default function Projects() {
     setEditing(row);
     setName(row.Name || "");
     setStatus(row.Status === "inactive" ? "inactive" : "active");
-    setError("");
   }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!name.trim()) {
-      setError("Project name is required");
+      showSnackbar("Project name is required", { type: "validation" });
       return;
     }
     setSaving(true);
-    setError("");
     try {
-      if (view === "edit" && editing) {
+      const isUpdate = view === "edit" && editing;
+      if (isUpdate) {
         await api.patch(`/projects/${editing.ProjectId}`, {
           name: name.trim(),
           status,
@@ -72,8 +72,9 @@ export default function Projects() {
       }
       await load();
       showList();
+      showSnackbar(isUpdate ? "Data updated successfully" : "Data saved successfully");
     } catch (err) {
-      setError(err.response?.data?.message || "Could not save project");
+      showSnackbar(err.response?.data?.message || "Could not save project", { type: "error" });
     } finally {
       setSaving(false);
     }
@@ -89,8 +90,9 @@ export default function Projects() {
     try {
       await api.delete(`/projects/${row.ProjectId}`);
       await load();
+      showSnackbar("Data deleted successfully");
     } catch (err) {
-      setError(err.response?.data?.message || "Could not delete project");
+      showSnackbar(err.response?.data?.message || "Could not delete project", { type: "error" });
     }
   }, []);
 
@@ -155,8 +157,6 @@ export default function Projects() {
         )}
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
-
       {isForm ? (
         <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4 max-w-xl">
           <div>
@@ -202,6 +202,8 @@ export default function Projects() {
             </button>
           </div>
         </form>
+      ) : loading ? (
+        <p className="text-muted">Loading projects…</p>
       ) : (
         <DataGrid
           rowData={projects}

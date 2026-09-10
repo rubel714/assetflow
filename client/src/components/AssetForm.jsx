@@ -1,12 +1,24 @@
 import React from "react";
 
+function statusChoices(current, role) {
+  const status = current || "Available";
+  const choices = [status];
+  if (status === "Available" || status === "Assigned") {
+    choices.push("Damaged", "Lost");
+    if (role === "organization_admin") choices.push("Retired");
+  } else if ((status === "Damaged" || status === "Lost") && role === "organization_admin") {
+    choices.push("Retired");
+  }
+  return [...new Set(choices)];
+}
+
 export default function AssetForm({
   form,
   lookups,
   isEdit,
   saving,
-  error,
   imagePreview,
+  role,
   onChange,
   onImageSelect,
   onImageRemove,
@@ -85,8 +97,8 @@ export default function AssetForm({
               <div>
                 <label className="input-label">Status</label>
                 <select className="input-field" value={form.status} onChange={update("status")}>
-                  {["Available", "Assigned", "Damaged", "Lost", "Retired"].map((s) => (
-                    <option key={s} value={s} disabled={s === "Assigned" && form.status !== "Assigned"}>
+                  {statusChoices(form.status, role).map((s) => (
+                    <option key={s} value={s}>
                       {s}
                     </option>
                   ))}
@@ -249,7 +261,7 @@ export default function AssetForm({
       </div>
 
       <div className="glass rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
-        {error ? <p className="text-sm text-red-400">{error}</p> : <span className="text-sm text-muted">All fields except name are optional.</span>}
+        <span className="text-sm text-muted">All fields except name are optional.</span>
         <div className="flex gap-2 ml-auto">
           <button
             type="button"

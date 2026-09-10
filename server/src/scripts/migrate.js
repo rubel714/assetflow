@@ -38,6 +38,42 @@ async function addColumnIfMissing(conn, table, column, definition) {
   }
 }
 
+async function dropColumnIfExists(conn, table, column) {
+  if (await columnExists(conn, table, column)) {
+    await conn.query(`ALTER TABLE \`${table}\` DROP COLUMN \`${column}\``);
+  }
+}
+
+async function ensureUserDesignationLink(conn) {
+  await addColumnIfMissing(conn, "users", "DesignationId", "INT NULL");
+  if (await columnExists(conn, "users", "Designation")) {
+    const [rows] = await conn.query(
+      `SELECT UserId, OrganizationId, Designation
+       FROM users
+       WHERE Designation IS NOT NULL AND TRIM(Designation) <> ""`
+    );
+    for (const row of rows) {
+      if (!row.OrganizationId) continue;
+      const name = String(row.Designation).trim();
+      const [existing] = await conn.query(
+        "SELECT DesignationId FROM designations WHERE OrganizationId = ? AND Name = ? LIMIT 1",
+        [row.OrganizationId, name]
+      );
+      let designationId = existing[0]?.DesignationId;
+      if (!designationId) {
+        const [inserted] = await conn.query(
+          "INSERT INTO designations (OrganizationId, Name) VALUES (?, ?)",
+          [row.OrganizationId, name]
+        );
+        designationId = inserted.insertId;
+      }
+      await conn.query("UPDATE users SET DesignationId = ? WHERE UserId = ?", [designationId, row.UserId]);
+    }
+    await dropColumnIfExists(conn, "users", "Designation");
+  }
+  await addFkIfMissing(conn, "fk_users_designation", "users", "DesignationId", "designations", "DesignationId");
+}
+
 async function addFkIfMissing(conn, constraint, table, column, refTable, refColumn) {
   if (await constraintExists(conn, table, constraint)) return;
   await conn.query(
@@ -107,6 +143,11 @@ async function migrate() {
 
   await ensureVendorContactColumns(root);
   await ensureAssetLookupColumns(root);
+  await addColumnIfMissing(root, "users", "ImagePath", "VARCHAR(255) NULL");
+  await addColumnIfMissing(root, "users", "Phone", "VARCHAR(50) NULL");
+  await addColumnIfMissing(root, "users", "Email", "VARCHAR(150) NULL");
+  await addColumnIfMissing(root, "users", "Address", "VARCHAR(255) NULL");
+  await ensureUserDesignationLink(root);
 
   const { ROLES, PERMISSIONS, ROLE_PERMISSIONS } = require("../lib/permissions");
   for (const key of Object.values(ROLES)) {

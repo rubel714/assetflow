@@ -35,10 +35,18 @@ export default function DataGrid({
   onCellClicked,
   context,
   rowHeight,
+  enableColumnFilter = true,
+  serverPagination = false,
+  page = 1,
+  pageSize: pageSizeProp = 10,
+  total = 0,
+  onPageChange,
+  onPageSizeChange,
+  rowOffset = 0,
 }) {
   const gridRef = useRef(null);
   const [popupParent, setPopupParent] = useState(null);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(pageSizeProp);
   const [pageInfo, setPageInfo] = useState({
     current: 1,
     total: 1,
@@ -57,6 +65,10 @@ export default function DataGrid({
 
   function changePageSize(next) {
     const size = Number(next);
+    if (serverPagination) {
+      onPageSizeChange?.(size);
+      return;
+    }
     setPageSize(size);
     gridRef.current?.api?.setGridOption("paginationPageSize", size);
     gridRef.current?.api?.paginationGoToFirstPage();
@@ -81,13 +93,13 @@ export default function DataGrid({
         let serial = "";
         api.forEachNodeAfterFilterAndSort((n, index) => {
           if (n === node || (n.id != null && n.id === node.id)) {
-            serial = index + 1;
+            serial = index + 1 + rowOffset;
           }
         });
         return serial;
       },
     }),
-    []
+    [rowOffset]
   );
 
   const mergedColumnDefs = useMemo(
@@ -101,15 +113,15 @@ export default function DataGrid({
       resizable: true,
       flex: 1,
       minWidth: 120,
-      filter: "agTextColumnFilter",
-      floatingFilter: true,
+      filter: enableColumnFilter ? "agTextColumnFilter" : false,
+      floatingFilter: enableColumnFilter,
       filterParams: {
         buttons: ["reset"],
         debounceMs: 200,
         maxNumConditions: 1,
       },
     }),
-    []
+    [enableColumnFilter]
   );
 
   useEffect(() => {
@@ -134,8 +146,8 @@ export default function DataGrid({
           overlayNoRowsTemplate={`<span class="text-muted">${emptyMessage}</span>`}
           onCellClicked={onCellClicked}
           context={context}
-          pagination
-          paginationPageSize={pageSize}
+          pagination={!serverPagination}
+          paginationPageSize={serverPagination ? pageSizeProp : pageSize}
           paginationPageSizeSelector={false}
           suppressPaginationPanel
           onPaginationChanged={() => {
@@ -160,7 +172,7 @@ export default function DataGrid({
           <select
             id="grid-page-size"
             className="grid-page-size"
-            value={pageSize}
+            value={serverPagination ? pageSizeProp : pageSize}
             onChange={(e) => changePageSize(e.target.value)}
           >
             <option value={10}>10</option>
@@ -169,31 +181,57 @@ export default function DataGrid({
           </select>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted">
-          <button
-            type="button"
-            className="px-2.5 py-1 rounded-lg border border-white/10 disabled:opacity-40"
-            disabled={pageInfo.current <= 1}
-            onClick={() => {
-              gridRef.current?.api?.paginationGoToPreviousPage();
-              refreshPageInfo();
-            }}
-          >
-            Prev
-          </button>
-          <span>
-            Page {pageInfo.current} of {pageInfo.total}
-          </span>
-          <button
-            type="button"
-            className="px-2.5 py-1 rounded-lg border border-white/10 disabled:opacity-40"
-            disabled={pageInfo.current >= pageInfo.total}
-            onClick={() => {
-              gridRef.current?.api?.paginationGoToNextPage();
-              refreshPageInfo();
-            }}
-          >
-            Next
-          </button>
+          {serverPagination ? (
+            <>
+              <button
+                type="button"
+                className="px-2.5 py-1 rounded-lg border border-white/10 disabled:opacity-40"
+                disabled={page <= 1}
+                onClick={() => onPageChange?.(page - 1)}
+              >
+                Prev
+              </button>
+              <span>
+                Page {page} of {Math.max(1, Math.ceil(total / pageSizeProp))}
+              </span>
+              <button
+                type="button"
+                className="px-2.5 py-1 rounded-lg border border-white/10 disabled:opacity-40"
+                disabled={page >= Math.max(1, Math.ceil(total / pageSizeProp))}
+                onClick={() => onPageChange?.(page + 1)}
+              >
+                Next
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="px-2.5 py-1 rounded-lg border border-white/10 disabled:opacity-40"
+                disabled={pageInfo.current <= 1}
+                onClick={() => {
+                  gridRef.current?.api?.paginationGoToPreviousPage();
+                  refreshPageInfo();
+                }}
+              >
+                Prev
+              </button>
+              <span>
+                Page {pageInfo.current} of {pageInfo.total}
+              </span>
+              <button
+                type="button"
+                className="px-2.5 py-1 rounded-lg border border-white/10 disabled:opacity-40"
+                disabled={pageInfo.current >= pageInfo.total}
+                onClick={() => {
+                  gridRef.current?.api?.paginationGoToNextPage();
+                  refreshPageInfo();
+                }}
+              >
+                Next
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

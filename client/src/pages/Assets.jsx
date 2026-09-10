@@ -7,7 +7,10 @@ import DataGrid from "../components/DataGrid";
 import GridActionsCell from "../components/GridActionsCell";
 import AssetForm from "../components/AssetForm";
 import ImageLightbox from "../components/ImageLightbox";
+import PageNotice from "../components/PageNotice";
 import { assetImageSrc } from "../lib/assetImage";
+import { API_BASE } from "../lib/apiBase";
+import { showSnackbar } from "../lib/snackbar";
 
 const emptyForm = {
   name: "",
@@ -124,18 +127,35 @@ export default function Assets() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [removeImage, setRemoveImage] = useState(false);
-  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState(null);
+  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
 
   const view = addMatch ? "add" : editMatch ? "edit" : "list";
   const isForm = view === "add" || view === "edit";
 
   function loadList() {
-    return api.get("/assets", { params: { page: 1, pageSize: 1000 } }).then((res) => {
-      setAssets(res.data.assets || []);
-    });
+    return api
+      .get("/assets", {
+        params: {
+          page,
+          pageSize,
+          q: search || undefined,
+          status: statusFilter || undefined,
+          categoryId: categoryFilter || undefined,
+        },
+      })
+      .then((res) => {
+        setAssets(res.data.assets || []);
+        setTotal(Number(res.data.total || 0));
+      });
   }
 
   useEffect(() => {
@@ -157,13 +177,20 @@ export default function Assets() {
   }, []);
 
   useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearch(query.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  useEffect(() => {
     if (view !== "list") return;
     setLoading(true);
     loadList()
-      .then(() => setError(""))
-      .catch((err) => setError(err.response?.data?.message || "Could not load assets"))
+      .catch(() => {})
       .finally(() => setLoading(false));
-  }, [view]);
+  }, [view, page, pageSize, search, statusFilter, categoryFilter]);
 
   useEffect(() => {
     if (view === "add") {
@@ -172,11 +199,9 @@ export default function Assets() {
       setImageFile(null);
       setImagePreview("");
       setRemoveImage(false);
-      setError("");
       return;
     }
     if (view === "edit" && id) {
-      setError("");
       api
         .get(`/assets/${id}`)
         .then((res) => {
@@ -187,17 +212,15 @@ export default function Assets() {
           setRemoveImage(false);
           setImagePreview(assetImageSrc(a.ImageUrl));
         })
-        .catch((err) => setError(err.response?.data?.message || "Could not load asset"));
+        .catch(() => {});
     }
   }, [view, id]);
 
   function showList() {
-    setError("");
     navigate("/assets");
   }
 
   function showAdd() {
-    setError("");
     navigate("/assets/new");
   }
 
@@ -247,11 +270,10 @@ export default function Assets() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim()) {
-      setError("Asset name is required");
+      showSnackbar("Asset name is required", { type: "validation" });
       return;
     }
     setSaving(true);
-    setError("");
     const data = new FormData();
     const fields = {
       ...form,
@@ -280,8 +302,9 @@ export default function Assets() {
       }
       await loadList();
       showList();
+      showSnackbar(view === "edit" ? "Data updated successfully" : "Data saved successfully");
     } catch (err) {
-      setError(err.response?.data?.message || "Could not save asset");
+      showSnackbar(err.response?.data?.message || "Could not save asset", { type: "error" });
     } finally {
       setSaving(false);
     }
@@ -289,7 +312,12 @@ export default function Assets() {
 
   function exportCsv() {
     const token = getToken();
-    fetch(`${import.meta.env.VITE_API_URL}/assets/export`, {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (statusFilter) params.set("status", statusFilter);
+    if (categoryFilter) params.set("categoryId", categoryFilter);
+    const qs = params.toString();
+    fetch(`${API_BASE}/assets/export${qs ? `?${qs}` : ""}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -303,8 +331,9 @@ export default function Assets() {
         a.download = "asset-register.csv";
         a.click();
         URL.revokeObjectURL(url);
+        showSnackbar("CSV exported successfully");
       })
-      .catch(() => setError("Could not export CSV"));
+      .catch(() => showSnackbar("Could not export CSV", { type: "error" }));
   }
 
   const columnDefs = useMemo(() => {
@@ -325,7 +354,8 @@ export default function Assets() {
         headerName: "Tag",
         minWidth: 120,
         flex: 1,
-        filter: "agTextColumnFilter",
+        filter: false,
+        floatingFilter: false,
         cellRenderer: TagCell,
       },
       {
@@ -333,35 +363,39 @@ export default function Assets() {
         headerName: "Name",
         minWidth: 180,
         flex: 2,
-        filter: "agTextColumnFilter",
+        filter: false,
+        floatingFilter: false,
       },
       {
         field: "CategoryName",
         headerName: "Category",
         minWidth: 140,
         flex: 1,
-        filter: "agTextColumnFilter",
+        filter: false,
+        floatingFilter: false,
       },
       {
         field: "Status",
         headerName: "Status",
         minWidth: 120,
         flex: 1,
-        filter: "agTextColumnFilter",
+        filter: false,
+        floatingFilter: false,
       },
       {
         field: "CustodianName",
         headerName: "Custodian",
         minWidth: 150,
         flex: 1,
-        filter: "agTextColumnFilter",
+        filter: false,
+        floatingFilter: false,
       },
       {
         field: "LocationName",
         headerName: "Location",
         minWidth: 150,
         flex: 1,
-        filter: "agTextColumnFilter",
+        filter: false,
       },
     ];
     if (canManage) {
@@ -430,7 +464,55 @@ export default function Assets() {
         )}
       </div>
 
-      {view === "list" && error && <p className="text-sm text-red-400">{error}</p>}
+      {view === "list" && (
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div>
+            <label className="input-label">Search</label>
+            <input
+              className="input-field"
+              placeholder="Tag, name, serial, brand, custodian"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="input-label">Status</label>
+            <select
+              className="input-field"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All statuses</option>
+              {["Available", "Assigned", "Damaged", "Lost", "Retired"].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="input-label">Category</label>
+            <select
+              className="input-field"
+              value={categoryFilter}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All categories</option>
+              {lookups.categories.map((c) => (
+                <option key={c.CategoryId} value={c.CategoryId}>
+                  {c.Name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {isForm ? (
         <AssetForm
@@ -438,8 +520,8 @@ export default function Assets() {
           lookups={lookups}
           isEdit={view === "edit"}
           saving={saving}
-          error={error}
           imagePreview={imagePreview}
+          role={user?.Role}
           onChange={updateField}
           onImageSelect={handleImageSelect}
           onImageRemove={handleImageRemove}
@@ -447,7 +529,7 @@ export default function Assets() {
           onCancel={showList}
         />
       ) : loading ? (
-        <p className="text-muted">Loading assets…</p>
+        <PageNotice loading loadingText="Loading assets…" />
       ) : (
         <DataGrid
           rowData={assets}
@@ -456,6 +538,17 @@ export default function Assets() {
           getRowId={(params) => String(params.data?.AssetId ?? params.data?.id ?? "")}
           emptyMessage="No assets yet."
           context={gridContext}
+          enableColumnFilter={false}
+          serverPagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          rowOffset={(page - 1) * pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
         />
       )}
       <ImageLightbox

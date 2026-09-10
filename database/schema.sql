@@ -29,6 +29,16 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   CONSTRAINT fk_rp_perm FOREIGN KEY (PermissionKey) REFERENCES permissions (PermissionKey)
 );
 
+CREATE TABLE IF NOT EXISTS designations (
+  DesignationId INT AUTO_INCREMENT PRIMARY KEY,
+  OrganizationId INT NOT NULL,
+  Name VARCHAR(120) NOT NULL,
+  CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_desig_org_name (OrganizationId, Name),
+  CONSTRAINT fk_desig_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId)
+);
+
 CREATE TABLE IF NOT EXISTS users (
   UserId INT AUTO_INCREMENT PRIMARY KEY,
   OrganizationId INT NULL,
@@ -37,10 +47,16 @@ CREATE TABLE IF NOT EXISTS users (
   FullName VARCHAR(150) NOT NULL,
   RoleKey VARCHAR(40) NOT NULL DEFAULT 'employee',
   Status VARCHAR(20) NOT NULL DEFAULT 'active',
+  ImagePath VARCHAR(255) NULL,
+  DesignationId INT NULL,
+  Phone VARCHAR(50) NULL,
+  Email VARCHAR(150) NULL,
+  Address VARCHAR(255) NULL,
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_users_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId),
-  CONSTRAINT fk_users_role FOREIGN KEY (RoleKey) REFERENCES roles (RoleKey)
+  CONSTRAINT fk_users_role FOREIGN KEY (RoleKey) REFERENCES roles (RoleKey),
+  CONSTRAINT fk_users_designation FOREIGN KEY (DesignationId) REFERENCES designations (DesignationId)
 );
 
 CREATE TABLE IF NOT EXISTS departments (

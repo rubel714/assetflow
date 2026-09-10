@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { clearAuth, getSavedUser, hasPermission, roleLabel } from "../lib/globalfunction";
 import { ORG_SECTIONS } from "../lib/orgSections";
 import ThemeToggle from "./ThemeToggle";
+import { assetImageSrc } from "../lib/assetImage";
 
 export default function TopNav({ onLogout }) {
   const navigate = useNavigate();
@@ -12,12 +13,17 @@ export default function TopNav({ onLogout }) {
   const orgMenuRef = useRef(null);
   const user = getSavedUser();
   const canSetup = hasPermission(user, "setup.manage");
+  const orgSections = ORG_SECTIONS.filter((item) => {
+    if (item.key === "settings") return hasPermission(user, "org.manage");
+    return canSetup;
+  });
   const orgActive = location.pathname.startsWith("/organization");
 
   const links = [
     { to: "/", label: "Dashboard", end: true, show: true },
     { to: "/assets", label: "Assets", end: true, show: hasPermission(user, "assets.read") },
     { to: "/assets/new", label: "Add Asset", show: hasPermission(user, "assets.manage") },
+    { to: "/organization/audit", label: "Audit", show: hasPermission(user, "setup.manage") },
     { to: "/users", label: "Users", show: hasPermission(user, "users.read") },
   ].filter((link) => link.show);
 
@@ -102,7 +108,7 @@ export default function TopNav({ onLogout }) {
                 {link.label}
               </NavLink>
             ))}
-          {canSetup && (
+          {orgSections.length > 0 && (
             <div className="relative" ref={orgMenuRef}>
               <button
                 type="button"
@@ -117,8 +123,8 @@ export default function TopNav({ onLogout }) {
                 </svg>
               </button>
               {orgOpen && (
-                <div className="absolute left-0 top-full mt-2 min-w-[13rem] glass rounded-xl py-1 shadow-lg">
-                  {ORG_SECTIONS.map((item) => (
+                <div className="absolute left-0 top-full mt-2 min-w-[13rem] max-h-[min(24rem,calc(100dvh-5rem))] overflow-y-auto glass rounded-xl py-1 shadow-lg z-[60]">
+                  {orgSections.map((item) => (
                     <NavLink
                       key={item.key}
                       to={item.to}
@@ -144,7 +150,14 @@ export default function TopNav({ onLogout }) {
             ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
+          {assetImageSrc(user?.ImageUrl) ? (
+            <img
+              src={assetImageSrc(user.ImageUrl)}
+              alt=""
+              className="h-9 w-9 rounded-full object-cover border border-white/10"
+            />
+          ) : null}
           <div className="text-right">
             <p className="text-sm font-medium leading-tight">
               {user?.FullName || user?.Username || "User"}
@@ -201,12 +214,12 @@ export default function TopNav({ onLogout }) {
                 {link.label}
               </NavLink>
             ))}
-          {canSetup && (
+          {orgSections.length > 0 && (
             <div className="pt-1">
               <p className={`px-3 py-2 text-xs uppercase tracking-widest ${orgActive ? "text-accent" : "text-muted"}`}>
                 Organization
               </p>
-              {ORG_SECTIONS.map((item) => (
+              {orgSections.map((item) => (
                 <NavLink
                   key={item.key}
                   to={item.to}
@@ -232,9 +245,18 @@ export default function TopNav({ onLogout }) {
               </NavLink>
             ))}
           <div className="pt-3 mt-2 border-t border-white/10 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium">{user?.FullName || user?.Username}</p>
-              <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
+            <div className="flex items-center gap-3 min-w-0">
+              {assetImageSrc(user?.ImageUrl) ? (
+                <img
+                  src={assetImageSrc(user.ImageUrl)}
+                  alt=""
+                  className="h-9 w-9 rounded-full object-cover border border-white/10 shrink-0"
+                />
+              ) : null}
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{user?.FullName || user?.Username}</p>
+                <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />

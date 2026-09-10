@@ -6,3 +6,5 @@ dist/
 .env.local
 server/uploads/assets/*
 !server/uploads/assets/.gitkeep
+server/uploads/users/*
+!server/uploads/users/.gitkeep

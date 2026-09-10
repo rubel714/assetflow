@@ -44,17 +44,17 @@ export default function ContactDirectory({ config }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function load() {
     return api.get(path).then((res) => setRows(pickList(res.data, listKey)));
   }
 
   useEffect(() => {
-    load().catch((err) =>
-      showSnackbar(err.response?.data?.message || `Could not load ${title.toLowerCase()}`, {
-        type: "error",
-      })
-    );
+    setLoading(true);
+    load()
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [path, title]);
 
   function showList() {
@@ -89,7 +89,7 @@ export default function ContactDirectory({ config }) {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim()) {
-      showSnackbar(`${singular} name is required`, { type: "error" });
+      showSnackbar(`${singular} name is required`, { type: "validation" });
       return;
     }
     setSaving(true);
@@ -285,6 +285,8 @@ export default function ContactDirectory({ config }) {
             </button>
           </div>
         </form>
+      ) : loading ? (
+        <p className="text-muted">Loading {title.toLowerCase()}…</p>
       ) : (
         <DataGrid
           rowData={rows}

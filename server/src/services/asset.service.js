@@ -55,7 +55,35 @@ async function getAsset(organizationId, assetId, conn) {
 }
 
 function canAssignStatus(status) {
-  return status === "Available" || status === "Assigned";
+  return status === "Available";
+}
+
+function buildAssetListWhere(user, query = {}) {
+  const params = [user.OrganizationId];
+  let where = "WHERE a.OrganizationId = ?";
+
+  if (user.RoleKey === "employee") {
+    where += " AND aa.UserId = ? AND aa.Status = 'open'";
+    params.push(user.UserId);
+  }
+  const q = query.q?.trim();
+  if (q) {
+    where += ` AND (
+      a.Name LIKE ? OR a.AssetTag LIKE ? OR a.SerialNumber LIKE ?
+      OR a.Brand LIKE ? OR au.FullName LIKE ?
+    )`;
+    const like = `%${q}%`;
+    params.push(like, like, like, like, like);
+  }
+  if (query.status?.trim()) {
+    where += " AND a.Status = ?";
+    params.push(query.status.trim());
+  }
+  if (query.categoryId) {
+    where += " AND a.CategoryId = ?";
+    params.push(query.categoryId);
+  }
+  return { where, params };
 }
 
 module.exports = {
@@ -64,4 +92,5 @@ module.exports = {
   getAsset,
   attachImageUrl,
   canAssignStatus,
+  buildAssetListWhere,
 };

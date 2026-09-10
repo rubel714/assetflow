@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
 import { confirmAction } from "../lib/confirm";
+import { showSnackbar } from "../lib/snackbar";
 import { pickList } from "../lib/setupLists";
 import DataGrid from "../components/DataGrid";
 import GridActionsCell from "../components/GridActionsCell";
@@ -10,29 +11,29 @@ export default function Locations() {
   const [view, setView] = useState("list");
   const [editing, setEditing] = useState(null);
   const [name, setName] = useState("");
-  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function load() {
     return api.get("/locations").then((res) => setLocations(pickList(res.data, "locations")));
   }
 
   useEffect(() => {
-    load().catch((err) => setError(err.response?.data?.message || "Could not load locations"));
+    load()
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   function showList() {
     setView("list");
     setEditing(null);
     setName("");
-    setError("");
   }
 
   function showAdd() {
     setView("add");
     setEditing(null);
     setName("");
-    setError("");
   }
 
   const showEdit = useCallback(async (row) => {
@@ -46,27 +47,27 @@ export default function Locations() {
     setView("edit");
     setEditing(row);
     setName(row.Name || "");
-    setError("");
   }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!name.trim()) {
-      setError("Location name is required");
+      showSnackbar("Location name is required", { type: "validation" });
       return;
     }
     setSaving(true);
-    setError("");
     try {
-      if (view === "edit" && editing) {
+      const isUpdate = view === "edit" && editing;
+      if (isUpdate) {
         await api.patch(`/locations/${editing.LocationId}`, { name: name.trim() });
       } else {
         await api.post("/locations", { name: name.trim() });
       }
       await load();
       showList();
+      showSnackbar(isUpdate ? "Data updated successfully" : "Data saved successfully");
     } catch (err) {
-      setError(err.response?.data?.message || "Could not save location");
+      showSnackbar(err.response?.data?.message || "Could not save location", { type: "error" });
     } finally {
       setSaving(false);
     }
@@ -82,8 +83,9 @@ export default function Locations() {
     try {
       await api.delete(`/locations/${row.LocationId}`);
       await load();
+      showSnackbar("Data deleted successfully");
     } catch (err) {
-      setError(err.response?.data?.message || "Could not delete location");
+      showSnackbar(err.response?.data?.message || "Could not delete location", { type: "error" });
     }
   }, []);
 
@@ -139,8 +141,6 @@ export default function Locations() {
         )}
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
-
       {isForm ? (
         <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4 max-w-xl">
           <div>
@@ -170,6 +170,8 @@ export default function Locations() {
             </button>
           </div>
         </form>
+      ) : loading ? (
+        <p className="text-muted">Loading locations…</p>
       ) : (
         <DataGrid
           rowData={locations}

@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { auditSetup, getOrgRow } = require("../services/setupAudit.service");
 
 const list = async (req, res) => {
   try {
@@ -26,6 +27,12 @@ const create = async (req, res) => {
       "INSERT INTO locations (OrganizationId, Name) VALUES (?, ?)",
       [req.user.OrganizationId, name]
     );
+    await auditSetup(req, {
+      action: "location.create",
+      entityType: "location",
+      entityId: result.insertId,
+      after: { Name: name },
+    });
     res.status(201).json({
       status: true,
       location: { LocationId: result.insertId, Name: name },
@@ -46,13 +53,21 @@ const update = async (req, res) => {
     if (!name) {
       return res.status(400).json({ status: false, message: "Location name is required" });
     }
-    const [result] = await db.query(
+    const current = await getOrgRow("locations", "LocationId", id, req.user.OrganizationId);
+    if (!current) {
+      return res.status(404).json({ status: false, message: "Location not found" });
+    }
+    await db.query(
       "UPDATE locations SET Name = ? WHERE LocationId = ? AND OrganizationId = ?",
       [name, id, req.user.OrganizationId]
     );
-    if (!result.affectedRows) {
-      return res.status(404).json({ status: false, message: "Location not found" });
-    }
+    await auditSetup(req, {
+      action: "location.update",
+      entityType: "location",
+      entityId: id,
+      before: { Name: current.Name },
+      after: { Name: name },
+    });
     res.json({ status: true, location: { LocationId: id, Name: name } });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
@@ -66,6 +81,10 @@ const update = async (req, res) => {
 const remove = async (req, res) => {
   try {
     const id = Number(req.params.id);
+    const current = await getOrgRow("locations", "LocationId", id, req.user.OrganizationId);
+    if (!current) {
+      return res.status(404).json({ status: false, message: "Location not found" });
+    }
     const [used] = await db.query(
       "SELECT AssetId FROM assets WHERE OrganizationId = ? AND LocationId = ? LIMIT 1",
       [req.user.OrganizationId, id]
@@ -73,13 +92,16 @@ const remove = async (req, res) => {
     if (used.length) {
       return res.status(409).json({ status: false, message: "This location is used by an asset" });
     }
-    const [result] = await db.query(
+    await db.query(
       "DELETE FROM locations WHERE LocationId = ? AND OrganizationId = ?",
       [id, req.user.OrganizationId]
     );
-    if (!result.affectedRows) {
-      return res.status(404).json({ status: false, message: "Location not found" });
-    }
+    await auditSetup(req, {
+      action: "location.delete",
+      entityType: "location",
+      entityId: id,
+      before: { Name: current.Name },
+    });
     res.json({ status: true });
   } catch (error) {
     console.error(error);

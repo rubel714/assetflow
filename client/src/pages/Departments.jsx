@@ -12,15 +12,16 @@ export default function Departments() {
   const [editing, setEditing] = useState(null);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function load() {
     return api.get("/departments").then((res) => setDepartments(pickList(res.data, "departments")));
   }
 
   useEffect(() => {
-    load().catch((err) =>
-      showSnackbar(err.response?.data?.message || "Could not load departments", { type: "error" })
-    );
+    load()
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   function showList() {
@@ -51,7 +52,7 @@ export default function Departments() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!name.trim()) {
-      showSnackbar("Department name is required", { type: "error" });
+      showSnackbar("Department name is required", { type: "validation" });
       return;
     }
     setSaving(true);
@@ -169,6 +170,8 @@ export default function Departments() {
             </button>
           </div>
         </form>
+      ) : loading ? (
+        <p className="text-muted">Loading departments…</p>
       ) : (
         <DataGrid
           rowData={departments}

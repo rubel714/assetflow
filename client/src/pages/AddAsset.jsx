@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
+import { showSnackbar } from "../lib/snackbar";
 
 const empty = {
   name: "",
@@ -23,7 +24,6 @@ export default function AddAsset() {
   const isEdit = Boolean(id);
   const [form, setForm] = useState(empty);
   const [lookups, setLookups] = useState({ categories: [], locations: [], departments: [], projects: [] });
-  const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function AddAsset() {
           status: a.Status || "Available",
         });
       })
-      .catch((err) => setMessage(err.response?.data?.message || "Could not load asset"));
+      .catch(() => {});
   }, [id, isEdit]);
 
   function update(field) {
@@ -61,11 +61,10 @@ export default function AddAsset() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim()) {
-      setMessage("Asset name is required.");
+      showSnackbar("Asset name is required", { type: "validation" });
       return;
     }
     setSaving(true);
-    setMessage("");
     const payload = {
       ...form,
       categoryId: form.categoryId || null,
@@ -78,9 +77,10 @@ export default function AddAsset() {
       const res = isEdit
         ? await api.patch(`/assets/${id}`, payload)
         : await api.post("/assets", payload);
+      showSnackbar(isEdit ? "Data updated successfully" : "Data saved successfully");
       navigate(`/assets/${res.data.asset.AssetId}`);
     } catch (err) {
-      setMessage(err.response?.data?.message || "Could not save asset");
+      showSnackbar(err.response?.data?.message || "Could not save asset", { type: "error" });
     } finally {
       setSaving(false);
     }
@@ -187,7 +187,6 @@ export default function AddAsset() {
         >
           {saving ? "Saving…" : "Save Asset"}
         </button>
-        {message && <p className="text-sm text-center text-red-400">{message}</p>}
       </form>
     </div>
   );

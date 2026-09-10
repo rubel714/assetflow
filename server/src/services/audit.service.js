@@ -1,8 +1,13 @@
 const db = require("../config/db");
 
-async function writeAudit(conn, { organizationId, userId, action, entityType, entityId, before, after }) {
-  const executor = conn || db;
-  await executor.query(
+function executor(conn) {
+  return conn && typeof conn.query === "function" ? conn : db;
+}
+
+async function writeAudit(conn, payload) {
+  const data = payload === undefined ? conn : payload;
+  const { organizationId, userId, action, entityType, entityId, before, after } = data;
+  await executor(payload === undefined ? null : conn).query(
     `INSERT INTO audit_logs
       (OrganizationId, UserId, Action, EntityType, EntityId, BeforeJson, AfterJson)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -18,9 +23,10 @@ async function writeAudit(conn, { organizationId, userId, action, entityType, en
   );
 }
 
-async function writeLifecycle(conn, { organizationId, assetId, eventType, previousValue, newValue, notes, createdBy }) {
-  const executor = conn || db;
-  await executor.query(
+async function writeLifecycle(conn, payload) {
+  const data = payload === undefined ? conn : payload;
+  const { organizationId, assetId, eventType, previousValue, newValue, notes, createdBy } = data;
+  await executor(payload === undefined ? null : conn).query(
     `INSERT INTO asset_lifecycle_events
       (OrganizationId, AssetId, EventType, PreviousValue, NewValue, Notes, CreatedBy)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,

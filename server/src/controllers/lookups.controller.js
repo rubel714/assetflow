@@ -1,10 +1,15 @@
 const db = require("../config/db");
+const { publicUserImageUrl } = require("../services/userImage.service");
 
 const list = async (req, res) => {
   try {
     const orgId = req.user.OrganizationId;
     const [departments] = await db.query(
       "SELECT DepartmentId, Name FROM departments WHERE OrganizationId = ? ORDER BY Name",
+      [orgId]
+    );
+    const [designations] = await db.query(
+      "SELECT DesignationId, Name FROM designations WHERE OrganizationId = ? ORDER BY Name",
       [orgId]
     );
     const [locations] = await db.query(
@@ -45,7 +50,7 @@ const list = async (req, res) => {
       userParams.push(req.user.UserId);
     }
     const [users] = await db.query(
-      `SELECT UserId, FullName, Username, RoleKey
+      `SELECT UserId, FullName, Username, RoleKey, ImagePath
        FROM users
        ${userWhere}
        ORDER BY FullName`,
@@ -54,6 +59,7 @@ const list = async (req, res) => {
     res.json({
       status: true,
       departments: departments.map((row) => ({ ...row, id: row.DepartmentId })),
+      designations: designations.map((row) => ({ ...row, id: row.DesignationId })),
       locations: locations.map((row) => ({ ...row, id: row.LocationId })),
       projects: projects.map((row) => ({ ...row, id: row.ProjectId })),
       categories: categories.map((row) => ({ ...row, id: row.CategoryId })),
@@ -69,6 +75,7 @@ const list = async (req, res) => {
         FullName: u.FullName,
         Username: u.Username,
         Role: u.RoleKey,
+        ImageUrl: publicUserImageUrl(u.ImagePath),
       })),
     });
   } catch (error) {

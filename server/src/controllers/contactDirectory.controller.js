@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { auditSetup, getOrgRow } = require("../services/setupAudit.service");
 
 function emptyToNull(value) {
   if (value == null) return null;
@@ -81,6 +82,12 @@ function createContactDirectoryController({
           fields.Website,
         ]
       );
+      await auditSetup(req, {
+        action: `${itemKey}.create`,
+        entityType: itemKey,
+        entityId: result.insertId,
+        after: { Name: fields.name },
+      });
       res.status(201).json({
         status: true,
         [itemKey]: mapRow({ [idCol]: result.insertId, ...fields, Name: fields.name }),
@@ -104,7 +111,11 @@ function createContactDirectoryController({
       if (!fields.name) {
         return res.status(400).json({ status: false, message: `${label} name is required` });
       }
-      const [result] = await db.query(
+      const current = await getOrgRow(table, idCol, id, req.user.OrganizationId);
+      if (!current) {
+        return res.status(404).json({ status: false, message: `${label} not found` });
+      }
+      await db.query(
         `UPDATE ${table}
          SET Name = ?, ContactName = ?, Email = ?, Phone = ?, Address = ?, Website = ?
          WHERE ${idCol} = ? AND OrganizationId = ?`,
@@ -119,9 +130,13 @@ function createContactDirectoryController({
           req.user.OrganizationId,
         ]
       );
-      if (!result.affectedRows) {
-        return res.status(404).json({ status: false, message: `${label} not found` });
-      }
+      await auditSetup(req, {
+        action: `${itemKey}.update`,
+        entityType: itemKey,
+        entityId: id,
+        before: { Name: current.Name },
+        after: { Name: fields.name },
+      });
       res.json({
         status: true,
         [itemKey]: mapRow({ [idCol]: id, ...fields, Name: fields.name }),
@@ -138,6 +153,10 @@ function createContactDirectoryController({
   const remove = async (req, res) => {
     try {
       const id = Number(req.params.id);
+      const current = await getOrgRow(table, idCol, id, req.user.OrganizationId);
+      if (!current) {
+        return res.status(404).json({ status: false, message: `${label} not found` });
+      }
       const [used] = await db.query(
         `SELECT AssetId FROM assets WHERE OrganizationId = ? AND ${assetFk} = ? LIMIT 1`,
         [req.user.OrganizationId, id]
@@ -148,13 +167,16 @@ function createContactDirectoryController({
           message: `This ${label} is used by an asset`,
         });
       }
-      const [result] = await db.query(
+      await db.query(
         `DELETE FROM ${table} WHERE ${idCol} = ? AND OrganizationId = ?`,
         [id, req.user.OrganizationId]
       );
-      if (!result.affectedRows) {
-        return res.status(404).json({ status: false, message: `${label} not found` });
-      }
+      await auditSetup(req, {
+        action: `${itemKey}.delete`,
+        entityType: itemKey,
+        entityId: id,
+        before: { Name: current.Name },
+      });
       res.json({ status: true });
     } catch (error) {
       console.error(error);

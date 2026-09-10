@@ -14,6 +14,19 @@ export function saveAuth(info, token) {
   }
 }
 
+export function patchSavedUser(partial) {
+  const current = getSavedUser();
+  if (!current) return null;
+  const next = { ...current, ...partial };
+  saveAuth(next);
+  try {
+    window.dispatchEvent(new Event("assetflow-auth-updated"));
+  } catch (e) {
+    /* ignore */
+  }
+  return next;
+}
+
 export function getSavedUser() {
   try {
     const s = localStorage.getItem(USER_KEY);

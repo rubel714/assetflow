@@ -1,5 +1,29 @@
 export const ORG_SECTIONS = [
   {
+    key: "settings",
+    label: "Settings",
+    singular: "settings",
+    path: "/organization",
+    to: "/organization/settings",
+    hint: "Organization name and tenant settings.",
+  },
+  {
+    key: "audit",
+    label: "Audit log",
+    singular: "audit event",
+    path: "/audit-logs",
+    to: "/organization/audit",
+    hint: "Immutable record of create, edit, and custody changes.",
+  },
+  {
+    key: "designations",
+    label: "Designations",
+    singular: "designation",
+    path: "/designations",
+    to: "/organization/designations",
+    hint: "Job titles that can be assigned to users.",
+  },
+  {
     key: "departments",
     label: "Departments",
     singular: "department",

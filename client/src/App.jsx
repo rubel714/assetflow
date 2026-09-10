@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { getSavedUser, clearAuth, hasPermission } from "./lib/globalfunction";
 import { ThemeProvider } from "./lib/ThemeContext";
@@ -9,9 +9,12 @@ import Assets from "./pages/Assets";
 import AssetDetail from "./pages/AssetDetail";
 import Users from "./pages/Users";
 import Departments from "./pages/Departments";
+import Designations from "./pages/Designations";
 import Locations from "./pages/Locations";
 import Projects from "./pages/Projects";
 import Categories from "./pages/Categories";
+import OrganizationSettings from "./pages/OrganizationSettings";
+import AuditLogs from "./pages/AuditLogs";
 import Manufacturers from "./pages/Manufacturers";
 import Suppliers from "./pages/Suppliers";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -33,6 +36,14 @@ function Protected({ user, onLogout, permission, children }) {
 
 export default function App() {
   const [user, setUser] = useState(getSavedUser());
+
+  useEffect(() => {
+    function refresh() {
+      setUser(getSavedUser());
+    }
+    window.addEventListener("assetflow-auth-updated", refresh);
+    return () => window.removeEventListener("assetflow-auth-updated", refresh);
+  }, []);
 
   const handleLogin = (u) => setUser(u);
   const handleLogout = () => {
@@ -92,13 +103,42 @@ export default function App() {
           />
           <Route
             path="/organization"
-            element={<Navigate to="/organization/departments" replace />}
+            element={
+              <Navigate
+                to={hasPermission(user, "org.manage") ? "/organization/settings" : "/organization/departments"}
+                replace
+              />
+            }
+          />
+          <Route
+            path="/organization/settings"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="org.manage">
+                <OrganizationSettings />
+              </Protected>
+            }
+          />
+          <Route
+            path="/organization/audit"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="setup.manage">
+                <AuditLogs />
+              </Protected>
+            }
           />
           <Route
             path="/organization/departments"
             element={
               <Protected user={user} onLogout={handleLogout} permission="setup.manage">
                 <Departments />
+              </Protected>
+            }
+          />
+          <Route
+            path="/organization/designations"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="setup.manage">
+                <Designations />
               </Protected>
             }
           />

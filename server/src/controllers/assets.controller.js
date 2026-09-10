@@ -1,8 +1,8 @@
 const db = require("../config/db");
 const { writeAudit, writeLifecycle } = require("../services/audit.service");
-const { ASSET_SELECT, nextAssetTag, getAsset, attachImageUrl, canAssignStatus } = require("../services/asset.service");
+const { ASSET_SELECT, nextAssetTag, getAsset, attachImageUrl, canAssignStatus, buildAssetListWhere } = require("../services/asset.service");
 const { relativeImagePath, deleteImageFile } = require("../services/assetImage.service");
-const { ASSET_STATUSES } = require("../lib/permissions");
+const { resolveStatusChange } = require("../lib/statusTransitions");
 const { isEmployee } = require("../middleware/auth");
 
 function emptyToNull(value) {
@@ -80,32 +80,7 @@ const list = async (req, res) => {
     const page = Math.max(1, Number(req.query.page) || 1);
     const pageSize = Math.min(1000, Math.max(1, Number(req.query.pageSize) || 20));
     const offset = (page - 1) * pageSize;
-    const q = req.query.q?.trim();
-    const status = req.query.status?.trim();
-    const categoryId = req.query.categoryId;
-    const params = [req.user.OrganizationId];
-    let where = "WHERE a.OrganizationId = ?";
-
-    if (isEmployee(req.user)) {
-      where += " AND aa.UserId = ? AND aa.Status = 'open'";
-      params.push(req.user.UserId);
-    }
-    if (q) {
-      where += ` AND (
-        a.Name LIKE ? OR a.AssetTag LIKE ? OR a.SerialNumber LIKE ?
-        OR a.Brand LIKE ? OR au.FullName LIKE ?
-      )`;
-      const like = `%${q}%`;
-      params.push(like, like, like, like, like);
-    }
-    if (status) {
-      where += " AND a.Status = ?";
-      params.push(status);
-    }
-    if (categoryId) {
-      where += " AND a.CategoryId = ?";
-      params.push(categoryId);
-    }
+    const { where, params } = buildAssetListWhere(req.user, req.query);
 
     const [countRows] = await db.query(
       `SELECT COUNT(*) AS total
@@ -263,29 +238,12 @@ const update = async (req, res) => {
       return res.status(400).json({ status: false, message: refError });
     }
 
-    let nextStatus = current.Status;
-    if (req.body.status && req.body.status !== current.Status) {
-      if (!ASSET_STATUSES.includes(req.body.status)) {
-        discardUploadedFile(req);
-        return res.status(400).json({ status: false, message: "Invalid status" });
-      }
-      if (req.body.status === "Retired" && req.user.RoleKey !== "organization_admin") {
-        discardUploadedFile(req);
-        return res.status(403).json({ status: false, message: "Only an organization admin can retire an asset" });
-      }
-      if (req.body.status === "Assigned") {
-        discardUploadedFile(req);
-        return res.status(400).json({ status: false, message: "Use assign or transfer to set Assigned status" });
-      }
-      if (current.Status === "Assigned" && ["Damaged", "Lost", "Retired"].includes(req.body.status)) {
-        discardUploadedFile(req);
-        return res.status(400).json({
-          status: false,
-          message: "Return the asset before marking it damaged, lost, or retired",
-        });
-      }
-      nextStatus = req.body.status;
+    const transition = resolveStatusChange(current.Status, req.body.status, req.user.RoleKey);
+    if (!transition.ok) {
+      discardUploadedFile(req);
+      return res.status(transition.statusCode).json({ status: false, message: transition.message });
     }
+    const nextStatus = transition.nextStatus;
 
     let imagePath = current.ImagePath || null;
     if (req.file) {
@@ -294,64 +252,84 @@ const update = async (req, res) => {
       imagePath = null;
     }
 
-    await db.query(
-      `UPDATE assets SET
-        Name = ?, Description = ?, CategoryId = ?, Brand = ?, Model = ?,
-        SerialNumber = ?, PurchaseDate = ?, PurchaseCost = ?, Status = ?,
-        LocationId = ?, DepartmentId = ?, ProjectId = ?, SupplierId = ?,
-        ManufacturerId = ?, CountryOfOriginId = ?, ReceiveDate = ?,
-        LastWarrantyDate = ?, MaintenanceScheduleId = ?, Remarks = ?, ImagePath = ?, UpdatedBy = ?
-       WHERE AssetId = ? AND OrganizationId = ?`,
-      [
-        fields.Name,
-        fields.Description,
-        fields.CategoryId,
-        fields.Brand,
-        fields.Model,
-        fields.SerialNumber,
-        fields.PurchaseDate,
-        fields.PurchaseCost,
-        nextStatus,
-        fields.LocationId,
-        fields.DepartmentId,
-        fields.ProjectId,
-        fields.SupplierId,
-        fields.ManufacturerId,
-        fields.CountryOfOriginId,
-        fields.ReceiveDate,
-        fields.LastWarrantyDate,
-        fields.MaintenanceScheduleId,
-        fields.Remarks,
-        imagePath,
-        req.user.UserId,
-        assetId,
-        req.user.OrganizationId,
-      ]
-    );
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      if (transition.closeAssignment && current.CurrentAssignmentId) {
+        await conn.query(
+          `UPDATE asset_assignments
+           SET Status = 'closed', ClosedAt = NOW(), ClosedBy = ?
+           WHERE AssignmentId = ? AND OrganizationId = ?`,
+          [req.user.UserId, current.CurrentAssignmentId, req.user.OrganizationId]
+        );
+      }
+      await conn.query(
+        `UPDATE assets SET
+          Name = ?, Description = ?, CategoryId = ?, Brand = ?, Model = ?,
+          SerialNumber = ?, PurchaseDate = ?, PurchaseCost = ?, Status = ?,
+          LocationId = ?, DepartmentId = ?, ProjectId = ?, SupplierId = ?,
+          ManufacturerId = ?, CountryOfOriginId = ?, ReceiveDate = ?,
+          LastWarrantyDate = ?, MaintenanceScheduleId = ?, Remarks = ?, ImagePath = ?,
+          CurrentAssignmentId = ?, UpdatedBy = ?
+         WHERE AssetId = ? AND OrganizationId = ?`,
+        [
+          fields.Name,
+          fields.Description,
+          fields.CategoryId,
+          fields.Brand,
+          fields.Model,
+          fields.SerialNumber,
+          fields.PurchaseDate,
+          fields.PurchaseCost,
+          nextStatus,
+          fields.LocationId,
+          fields.DepartmentId,
+          fields.ProjectId,
+          fields.SupplierId,
+          fields.ManufacturerId,
+          fields.CountryOfOriginId,
+          fields.ReceiveDate,
+          fields.LastWarrantyDate,
+          fields.MaintenanceScheduleId,
+          fields.Remarks,
+          imagePath,
+          transition.closeAssignment ? null : current.CurrentAssignmentId,
+          req.user.UserId,
+          assetId,
+          req.user.OrganizationId,
+        ]
+      );
+
+      if (nextStatus !== current.Status) {
+        await writeLifecycle(conn, {
+          organizationId: req.user.OrganizationId,
+          assetId,
+          eventType: "status",
+          previousValue: current.Status,
+          newValue: nextStatus,
+          createdBy: req.user.UserId,
+        });
+      }
+      await writeAudit(conn, {
+        organizationId: req.user.OrganizationId,
+        userId: req.user.UserId,
+        action: "asset.update",
+        entityType: "asset",
+        entityId: assetId,
+        before: current,
+        after: { ...fields, Status: nextStatus },
+      });
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
 
     if (imagePath !== (current.ImagePath || null) && current.ImagePath) {
       deleteImageFile(current.ImagePath);
     }
-
-    if (nextStatus !== current.Status) {
-      await writeLifecycle(db, {
-        organizationId: req.user.OrganizationId,
-        assetId,
-        eventType: "status",
-        previousValue: current.Status,
-        newValue: nextStatus,
-        createdBy: req.user.UserId,
-      });
-    }
-    await writeAudit(db, {
-      organizationId: req.user.OrganizationId,
-      userId: req.user.UserId,
-      action: "asset.update",
-      entityType: "asset",
-      entityId: assetId,
-      before: current,
-      after: { ...fields, Status: nextStatus },
-    });
 
     res.json({ status: true, asset: await getAsset(req.user.OrganizationId, assetId) });
   } catch (error) {
@@ -591,12 +569,7 @@ function csvEscape(value) {
 
 const exportCsv = async (req, res) => {
   try {
-    const params = [req.user.OrganizationId];
-    let where = "WHERE a.OrganizationId = ?";
-    if (isEmployee(req.user)) {
-      where += " AND aa.UserId = ? AND aa.Status = 'open'";
-      params.push(req.user.UserId);
-    }
+    const { where, params } = buildAssetListWhere(req.user, req.query);
     const [rows] = await db.query(`${ASSET_SELECT} ${where} ORDER BY a.AssetTag ASC`, params);
     const header = [
       "AssetTag",

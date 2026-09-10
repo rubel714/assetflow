@@ -55,6 +55,7 @@ function imageExtFromFile(file) {
 module.exports = {
   ASSETS_UPLOAD_DIR,
   ALLOWED_IMAGE_TYPES,
+  ALLOWED_EXTS,
   ensureAssetsUploadDir,
   relativeImagePath,
   absoluteImagePath,
