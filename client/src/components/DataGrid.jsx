@@ -143,6 +143,8 @@ export default function DataGrid({
           domLayout="autoHeight"
           animateRows={false}
           suppressCellFocus
+          enableCellTextSelection
+          ensureDomOrder
           overlayNoRowsTemplate={`<span class="text-muted">${emptyMessage}</span>`}
           onCellClicked={onCellClicked}
           context={context}
