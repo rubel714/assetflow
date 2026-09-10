@@ -167,7 +167,7 @@ test("assigned asset can be marked damaged without returning first", async () =>
   const assetId = created.json.asset.AssetId;
 
   const users = await api("GET", "/users", { token });
-  const employee = (users.json.users || []).find((u) => u.Role === "employee");
+  const employee = (users.json.users || []).find((u) => u.Username === "employee");
   assert.ok(employee);
   const assigned = await api("POST", `/assets/${assetId}/assign`, {
     token,
@@ -192,4 +192,90 @@ test("admin can update organization settings", async () => {
   const updated = await api("PATCH", "/organization", { token, body: { name } });
   assert.equal(updated.status, 200);
   assert.equal(updated.json.organization.Name, name);
+});
+
+test("employee accepts a pending handover", async () => {
+  const admin = await login("admin", "admin123");
+  const created = await api("POST", "/assets", { token: admin, body: { name: "MVP Plus Handover Probe" } });
+  assert.equal(created.status, 201, created.json?.message);
+  const assetId = created.json.asset.AssetId;
+
+  const users = await api("GET", "/users", { token: admin });
+  const employee = (users.json.users || []).find((u) => u.Username === "employee");
+  assert.ok(employee);
+
+  const assigned = await api("POST", `/assets/${assetId}/assign`, {
+    token: admin,
+    body: { userId: employee.UserId, notes: "handover test" },
+  });
+  assert.equal(assigned.status, 200, assigned.json?.message);
+  assert.equal(assigned.json.asset.HandoverStatus, "pending");
+
+  const employeeToken = await login("employee", "employee123");
+  const accepted = await api("POST", `/assets/${assetId}/accept`, { token: employeeToken });
+  assert.equal(accepted.status, 200, accepted.json?.message);
+  assert.equal(accepted.json.asset.HandoverStatus, "accepted");
+});
+
+test("lookup is scoped by organization", async () => {
+  const demoAdmin = await login("admin", "admin123");
+  const miss = await api("GET", "/assets/lookup?tag=AF-ISO1", { token: demoAdmin });
+  assert.equal(miss.status, 404);
+});
+
+test("warranty list includes soon-to-expire assets", async () => {
+  const admin = await login("admin", "admin123");
+  const expiry = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const created = await api("POST", "/assets", {
+    token: admin,
+    body: { name: "MVP Plus Warranty Probe", lastWarrantyDate: expiry },
+  });
+  assert.equal(created.status, 201, created.json?.message);
+  const list = await api("GET", "/warranties?days=30", { token: admin });
+  assert.equal(list.status, 200);
+  assert.ok((list.json.warranties || []).some((row) => row.AssetId === created.json.asset.AssetId));
+});
+
+test("employee cannot start a work order; manager can", async () => {
+  const admin = await login("admin", "admin123");
+  const created = await api("POST", "/assets", { token: admin, body: { name: "MVP Plus Repair Probe" } });
+  assert.equal(created.status, 201, created.json?.message);
+  const assetId = created.json.asset.AssetId;
+
+  const employeeToken = await login("employee", "employee123");
+  const employeeCreate = await api("POST", "/maintenance-requests", {
+    token: employeeToken,
+    body: { assetId, title: "Fan noise" },
+  });
+  assert.ok(employeeCreate.status === 403 || employeeCreate.status === 404);
+
+  const request = await api("POST", "/maintenance-requests", {
+    token: admin,
+    body: { assetId, title: "Fan noise" },
+  });
+  assert.equal(request.status, 201, request.json?.message);
+
+  const forbiddenStart = await api("PATCH", `/maintenance-requests/${request.json.request.RequestId}`, {
+    token: employeeToken,
+    body: { action: "start" },
+  });
+  assert.equal(forbiddenStart.status, 403);
+
+  const manager = await login("manager", "manager123");
+  const started = await api("PATCH", `/maintenance-requests/${request.json.request.RequestId}`, {
+    token: manager,
+    body: { action: "start" },
+  });
+  assert.equal(started.status, 200, started.json?.message);
+
+  const asset = await api("GET", `/assets/${assetId}`, { token: admin });
+  assert.equal(asset.json.asset.Status, "In Repair");
+
+  const completed = await api("PATCH", `/maintenance-requests/${request.json.request.RequestId}`, {
+    token: manager,
+    body: { action: "complete" },
+  });
+  assert.equal(completed.status, 200, completed.json?.message);
+  const restored = await api("GET", `/assets/${assetId}`, { token: admin });
+  assert.equal(restored.json.asset.Status, "Available");
 });

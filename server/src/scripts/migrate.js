@@ -148,6 +148,13 @@ async function migrate() {
   await addColumnIfMissing(root, "users", "Email", "VARCHAR(150) NULL");
   await addColumnIfMissing(root, "users", "Address", "VARCHAR(255) NULL");
   await ensureUserDesignationLink(root);
+  await addColumnIfMissing(
+    root,
+    "asset_assignments",
+    "AcceptanceStatus",
+    "VARCHAR(20) NOT NULL DEFAULT 'accepted'"
+  );
+  await addColumnIfMissing(root, "asset_assignments", "AcceptedAt", "DATETIME NULL");
 
   const { ROLES, PERMISSIONS, ROLE_PERMISSIONS } = require("../lib/permissions");
   for (const key of Object.values(ROLES)) {

@@ -12,6 +12,9 @@ const PERMISSIONS = {
   ASSETS_READ: "assets.read",
   ASSETS_MANAGE: "assets.manage",
   ASSETS_ASSIGN: "assets.assign",
+  ASSETS_ACCEPT: "assets.accept",
+  MAINTENANCE_REQUEST: "maintenance.request",
+  MAINTENANCE_MANAGE: "maintenance.manage",
   REPORTS_EXPORT: "reports.export",
   DASHBOARD_READ: "dashboard.read",
 };
@@ -24,13 +27,21 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.ASSETS_READ,
     PERMISSIONS.ASSETS_MANAGE,
     PERMISSIONS.ASSETS_ASSIGN,
+    PERMISSIONS.ASSETS_ACCEPT,
+    PERMISSIONS.MAINTENANCE_REQUEST,
+    PERMISSIONS.MAINTENANCE_MANAGE,
     PERMISSIONS.REPORTS_EXPORT,
     PERMISSIONS.DASHBOARD_READ,
   ],
-  [ROLES.EMPLOYEE]: [PERMISSIONS.ASSETS_READ, PERMISSIONS.DASHBOARD_READ],
+  [ROLES.EMPLOYEE]: [
+    PERMISSIONS.ASSETS_READ,
+    PERMISSIONS.ASSETS_ACCEPT,
+    PERMISSIONS.MAINTENANCE_REQUEST,
+    PERMISSIONS.DASHBOARD_READ,
+  ],
 };
 
-const ASSET_STATUSES = ["Available", "Assigned", "Damaged", "Lost", "Retired"];
+const ASSET_STATUSES = ["Available", "Assigned", "Damaged", "Lost", "Retired", "In Repair"];
 
 module.exports = {
   ROLES,

@@ -15,7 +15,11 @@ const locationsController = require("../controllers/locations.controller");
 const projectsController = require("../controllers/projects.controller");
 const categoriesController = require("../controllers/categories.controller");
 const { suppliers: suppliersController, manufacturers: manufacturersController } = require("../controllers/contactDirectory.controller");
+const warrantiesController = require("../controllers/warranties.controller");
+const maintenanceController = require("../controllers/maintenance.controller");
+const assetDocumentsController = require("../controllers/assetDocuments.controller");
 const { uploadAssetImage, uploadUserImage } = require("../middleware/assetImageUpload");
+const { uploadAssetDocument } = require("../middleware/assetDocumentUpload");
 
 router.use("/", authRoutes);
 
@@ -59,7 +63,18 @@ router.post("/manufacturers", ...canSetup, manufacturersController.create);
 router.patch("/manufacturers/:id", ...canSetup, manufacturersController.update);
 router.delete("/manufacturers/:id", ...canSetup, manufacturersController.remove);
 
+router.get("/warranties", requireAuth, requirePermission(PERMISSIONS.ASSETS_READ), warrantiesController.list);
+router.get("/maintenance-requests", requireAuth, requirePermission(PERMISSIONS.MAINTENANCE_REQUEST), maintenanceController.list);
+router.post("/maintenance-requests", requireAuth, requirePermission(PERMISSIONS.MAINTENANCE_REQUEST), maintenanceController.create);
+router.patch(
+  "/maintenance-requests/:id",
+  requireAuth,
+  requirePermission(PERMISSIONS.MAINTENANCE_MANAGE),
+  maintenanceController.update
+);
+
 router.get("/assets/export", requireAuth, requirePermission(PERMISSIONS.REPORTS_EXPORT), assetsController.exportCsv);
+router.get("/assets/lookup", requireAuth, requirePermission(PERMISSIONS.ASSETS_READ), assetsController.lookup);
 router.get("/assets", requireAuth, requirePermission(PERMISSIONS.ASSETS_READ), assetsController.list);
 router.post("/assets", requireAuth, requirePermission(PERMISSIONS.ASSETS_MANAGE), uploadAssetImage, assetsController.create);
 router.get("/assets/:id", requireAuth, requirePermission(PERMISSIONS.ASSETS_READ), assetsController.getOne);
@@ -67,5 +82,20 @@ router.patch("/assets/:id", requireAuth, requirePermission(PERMISSIONS.ASSETS_MA
 router.post("/assets/:id/assign", requireAuth, requirePermission(PERMISSIONS.ASSETS_ASSIGN), assetsController.assign);
 router.post("/assets/:id/transfer", requireAuth, requirePermission(PERMISSIONS.ASSETS_ASSIGN), assetsController.transfer);
 router.post("/assets/:id/return", requireAuth, requirePermission(PERMISSIONS.ASSETS_ASSIGN), assetsController.returnAsset);
+router.post("/assets/:id/accept", requireAuth, requirePermission(PERMISSIONS.ASSETS_ACCEPT), assetsController.accept);
+router.get("/assets/:id/documents", requireAuth, requirePermission(PERMISSIONS.ASSETS_READ), assetDocumentsController.list);
+router.post(
+  "/assets/:id/documents",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSETS_READ),
+  uploadAssetDocument,
+  assetDocumentsController.create
+);
+router.delete(
+  "/assets/:id/documents/:documentId",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSETS_READ),
+  assetDocumentsController.remove
+);
 
 module.exports = router;

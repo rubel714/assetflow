@@ -21,8 +21,12 @@ export default function TopNav({ onLogout }) {
 
   const links = [
     { to: "/", label: "Dashboard", end: true, show: true },
+    { to: "/my-assets", label: "My Assets", show: user?.Role === "employee" && hasPermission(user, "assets.read") },
     { to: "/assets", label: "Assets", end: true, show: hasPermission(user, "assets.read") },
+    { to: "/scan", label: "Scan", show: hasPermission(user, "assets.read") },
     { to: "/assets/new", label: "Add Asset", show: hasPermission(user, "assets.manage") },
+    { to: "/warranties", label: "Warranties", show: hasPermission(user, "assets.read") },
+    { to: "/maintenance", label: "Maintenance", show: hasPermission(user, "maintenance.request") },
     { to: "/organization/audit", label: "Audit", show: hasPermission(user, "setup.manage") },
     { to: "/users", label: "Users", show: hasPermission(user, "users.read") },
   ].filter((link) => link.show);
@@ -66,7 +70,7 @@ export default function TopNav({ onLogout }) {
   }`;
 
   return (
-    <header className="sticky top-0 z-50 glass border-b border-white/10">
+    <header className="sticky top-0 z-[80] glass border-b border-white/10">
       <div className="w-full px-4 md:px-6 h-16 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 shrink-0">
           <div
@@ -109,7 +113,7 @@ export default function TopNav({ onLogout }) {
               </NavLink>
             ))}
           {orgSections.length > 0 && (
-            <div className="relative" ref={orgMenuRef}>
+            <div className="relative z-[90]" ref={orgMenuRef}>
               <button
                 type="button"
                 className={orgButtonClass}
@@ -123,7 +127,7 @@ export default function TopNav({ onLogout }) {
                 </svg>
               </button>
               {orgOpen && (
-                <div className="absolute left-0 top-full mt-2 min-w-[13rem] max-h-[min(24rem,calc(100dvh-5rem))] overflow-y-auto glass rounded-xl py-1 shadow-lg z-[60]">
+                <div className="nav-dropdown absolute left-0 top-full mt-2 min-w-[13rem] max-h-[min(24rem,calc(100dvh-5rem))] overflow-y-auto rounded-xl py-1">
                   {orgSections.map((item) => (
                     <NavLink
                       key={item.key}

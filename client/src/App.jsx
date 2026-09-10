@@ -7,6 +7,10 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Assets from "./pages/Assets";
 import AssetDetail from "./pages/AssetDetail";
+import MyAssets from "./pages/MyAssets";
+import ScanAsset from "./pages/ScanAsset";
+import Warranties from "./pages/Warranties";
+import Maintenance from "./pages/Maintenance";
 import Users from "./pages/Users";
 import Departments from "./pages/Departments";
 import Designations from "./pages/Designations";
@@ -74,6 +78,38 @@ export default function App() {
             element={
               <Protected user={user} onLogout={handleLogout} permission="assets.read">
                 <Assets />
+              </Protected>
+            }
+          />
+          <Route
+            path="/my-assets"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="assets.read">
+                <MyAssets />
+              </Protected>
+            }
+          />
+          <Route
+            path="/scan"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="assets.read">
+                <ScanAsset />
+              </Protected>
+            }
+          />
+          <Route
+            path="/warranties"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="assets.read">
+                <Warranties />
+              </Protected>
+            }
+          />
+          <Route
+            path="/maintenance"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="maintenance.request">
+                <Maintenance />
               </Protected>
             }
           />

@@ -17,6 +17,13 @@ function resolveStatusChange(from, to, roleKey) {
   if (from === "Retired") {
     return { ok: false, statusCode: 400, message: "A retired asset cannot change status" };
   }
+  if (to === "In Repair") {
+    return {
+      ok: false,
+      statusCode: 400,
+      message: "Use a maintenance work order to move an asset into repair",
+    };
+  }
   if (to === "Retired") {
     if (roleKey !== ROLES.ORGANIZATION_ADMIN) {
       return {
@@ -25,7 +32,7 @@ function resolveStatusChange(from, to, roleKey) {
         message: "Only an organization admin can retire an asset",
       };
     }
-    return { ok: true, nextStatus: to, closeAssignment: from === "Assigned" };
+    return { ok: true, nextStatus: to, closeAssignment: from === "Assigned" || from === "In Repair" };
   }
   if ((to === "Damaged" || to === "Lost") && (from === "Available" || from === "Assigned")) {
     return { ok: true, nextStatus: to, closeAssignment: from === "Assigned" };
@@ -43,7 +50,7 @@ function statusChoices(currentStatus, roleKey) {
   if (current === "Available" || current === "Assigned") {
     choices.push("Damaged", "Lost");
     if (roleKey === ROLES.ORGANIZATION_ADMIN) choices.push("Retired");
-  } else if (current === "Damaged" || current === "Lost") {
+  } else if (current === "Damaged" || current === "Lost" || current === "In Repair") {
     if (roleKey === ROLES.ORGANIZATION_ADMIN) choices.push("Retired");
   }
   return [...new Set(choices)];

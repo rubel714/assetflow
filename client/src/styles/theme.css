@@ -42,6 +42,14 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+.nav-dropdown {
+  z-index: 90;
+  background: var(--bg-app);
+  color: var(--text-main);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+
 .glass {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
@@ -157,4 +165,25 @@ body > .ag-popup .ag-filter {
   position: relative;
   z-index: 1;
   overflow: hidden;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .qr-print-label,
+  .qr-print-label * {
+    visibility: visible;
+  }
+  .qr-print-hide {
+    display: none !important;
+  }
+  .qr-print-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    box-shadow: none;
+    background: #fff;
+    color: #0f172a;
+  }
 }

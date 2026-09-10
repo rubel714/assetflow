@@ -16,6 +16,9 @@ const PERMISSION_NAMES = {
   [PERMISSIONS.ASSETS_READ]: "View assets",
   [PERMISSIONS.ASSETS_MANAGE]: "Manage assets",
   [PERMISSIONS.ASSETS_ASSIGN]: "Assign assets",
+  [PERMISSIONS.ASSETS_ACCEPT]: "Accept asset handover",
+  [PERMISSIONS.MAINTENANCE_REQUEST]: "Request maintenance",
+  [PERMISSIONS.MAINTENANCE_MANAGE]: "Manage maintenance work orders",
   [PERMISSIONS.REPORTS_EXPORT]: "Export reports",
   [PERMISSIONS.DASHBOARD_READ]: "View dashboard",
 };
@@ -401,6 +404,7 @@ async function seed() {
     Status: "Available",
     LocationId: locations["Group Head Office, Bashundhara R/A"],
     DepartmentId: departments.Administration,
+    LastWarrantyDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     CreatedBy: managerId,
   });
 
@@ -415,6 +419,7 @@ async function seed() {
     Status: "Available",
     LocationId: locations["Central Store, Head Office"],
     DepartmentId: departments["Information Technology"],
+    LastWarrantyDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     CreatedBy: adminId,
   });
 
@@ -426,8 +431,8 @@ async function seed() {
   if (!openAssign.length) {
     const [assignResult] = await db.query(
       `INSERT INTO asset_assignments
-        (OrganizationId, AssetId, UserId, Notes, Status, AssignedBy)
-       VALUES (?, ?, ?, ?, 'open', ?)`,
+        (OrganizationId, AssetId, UserId, Notes, Status, AssignedBy, AcceptanceStatus, AcceptedAt)
+       VALUES (?, ?, ?, ?, 'open', ?, 'accepted', NOW())`,
       [orgId, laptopId, employeeId, "Seeded assignment", adminId]
     );
     await db.query(
@@ -442,7 +447,7 @@ async function seed() {
     );
   }
 
-  console.log("Seeded Phase 1 demo data (admin / admin123)");
+  console.log("Seeded demo data (admin / admin123)");
 }
 
 module.exports = seed;

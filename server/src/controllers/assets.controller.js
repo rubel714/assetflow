@@ -1,9 +1,8 @@
 const db = require("../config/db");
 const { writeAudit, writeLifecycle } = require("../services/audit.service");
-const { ASSET_SELECT, nextAssetTag, getAsset, attachImageUrl, canAssignStatus, buildAssetListWhere } = require("../services/asset.service");
+const { ASSET_SELECT, nextAssetTag, getAsset, attachImageUrl, canAssignStatus, buildAssetListWhere, employeeCanViewAsset } = require("../services/asset.service");
 const { relativeImagePath, deleteImageFile } = require("../services/assetImage.service");
 const { resolveStatusChange } = require("../lib/statusTransitions");
-const { isEmployee } = require("../middleware/auth");
 
 function emptyToNull(value) {
   if (value === undefined || value === null || value === "") return null;
@@ -114,7 +113,7 @@ const getOne = async (req, res) => {
     if (!asset) {
       return res.status(404).json({ status: false, message: "Asset not found" });
     }
-    if (isEmployee(req.user) && asset.CustodianId !== req.user.UserId) {
+    if (!employeeCanViewAsset(req.user, asset)) {
       return res.status(403).json({ status: false, message: "You can only view assets assigned to you" });
     }
 
@@ -381,9 +380,16 @@ const assign = async (req, res) => {
 
       const [result] = await conn.query(
         `INSERT INTO asset_assignments
-          (OrganizationId, AssetId, UserId, Notes, Status, AssignedBy)
-         VALUES (?, ?, ?, ?, 'open', ?)`,
-        [req.user.OrganizationId, assetId, userId, notes, req.user.UserId]
+          (OrganizationId, AssetId, UserId, Notes, Status, AssignedBy, AcceptanceStatus, AcceptedAt)
+         VALUES (?, ?, ?, ?, 'open', ?, ?, ${userId === req.user.UserId ? "NOW()" : "NULL"})`,
+        [
+          req.user.OrganizationId,
+          assetId,
+          userId,
+          notes,
+          req.user.UserId,
+          userId === req.user.UserId ? "accepted" : "pending",
+        ]
       );
       await conn.query(
         `UPDATE assets SET Status = 'Assigned', CurrentAssignmentId = ?, UpdatedBy = ?
@@ -459,9 +465,16 @@ const transfer = async (req, res) => {
       );
       const [result] = await conn.query(
         `INSERT INTO asset_assignments
-          (OrganizationId, AssetId, UserId, Notes, Status, AssignedBy)
-         VALUES (?, ?, ?, ?, 'open', ?)`,
-        [req.user.OrganizationId, assetId, userId, notes, req.user.UserId]
+          (OrganizationId, AssetId, UserId, Notes, Status, AssignedBy, AcceptanceStatus, AcceptedAt)
+         VALUES (?, ?, ?, ?, 'open', ?, ?, ${userId === req.user.UserId ? "NOW()" : "NULL"})`,
+        [
+          req.user.OrganizationId,
+          assetId,
+          userId,
+          notes,
+          req.user.UserId,
+          userId === req.user.UserId ? "accepted" : "pending",
+        ]
       );
       await conn.query(
         `UPDATE assets SET CurrentAssignmentId = ?, UpdatedBy = ?
@@ -560,6 +573,86 @@ const returnAsset = async (req, res) => {
   }
 };
 
+const accept = async (req, res) => {
+  try {
+    const assetId = Number(req.params.id);
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const asset = await getAsset(req.user.OrganizationId, assetId, conn);
+      if (!asset) {
+        await conn.rollback();
+        return res.status(404).json({ status: false, message: "Asset not found" });
+      }
+      if (!asset.CurrentAssignmentId || Number(asset.CustodianId) !== Number(req.user.UserId)) {
+        await conn.rollback();
+        return res.status(403).json({ status: false, message: "You can only accept assets assigned to you" });
+      }
+      if (asset.HandoverStatus === "accepted") {
+        await conn.rollback();
+        return res.status(400).json({ status: false, message: "This handover is already accepted" });
+      }
+
+      await conn.query(
+        `UPDATE asset_assignments
+         SET AcceptanceStatus = 'accepted', AcceptedAt = NOW()
+         WHERE AssignmentId = ? AND OrganizationId = ?`,
+        [asset.CurrentAssignmentId, req.user.OrganizationId]
+      );
+      await writeLifecycle(conn, {
+        organizationId: req.user.OrganizationId,
+        assetId,
+        eventType: "handover",
+        previousValue: "pending",
+        newValue: "accepted",
+        createdBy: req.user.UserId,
+      });
+      await writeAudit(conn, {
+        organizationId: req.user.OrganizationId,
+        userId: req.user.UserId,
+        action: "asset.accept",
+        entityType: "asset",
+        entityId: assetId,
+        after: { assignmentId: asset.CurrentAssignmentId },
+      });
+      await conn.commit();
+      res.json({ status: true, asset: await getAsset(req.user.OrganizationId, assetId) });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: false, message: "Could not accept handover" });
+  }
+};
+
+const lookup = async (req, res) => {
+  try {
+    const tag = req.query.tag?.trim();
+    if (!tag) {
+      return res.status(400).json({ status: false, message: "Asset tag is required" });
+    }
+    const [rows] = await db.query(
+      `${ASSET_SELECT} WHERE a.OrganizationId = ? AND a.AssetTag = ? LIMIT 1`,
+      [req.user.OrganizationId, tag]
+    );
+    const asset = attachImageUrl(rows[0] || null);
+    if (!asset) {
+      return res.status(404).json({ status: false, message: "No asset found with that tag" });
+    }
+    if (!employeeCanViewAsset(req.user, asset)) {
+      return res.status(403).json({ status: false, message: "You can only view assets assigned to you" });
+    }
+    res.json({ status: true, asset });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: false, message: "Could not look up asset" });
+  }
+};
+
 function csvEscape(value) {
   if (value === null || value === undefined) return "";
   const text = String(value);
@@ -639,6 +732,8 @@ module.exports = {
   assign,
   transfer,
   returnAsset,
+  accept,
+  lookup,
   exportCsv,
   canAssignStatus,
 };

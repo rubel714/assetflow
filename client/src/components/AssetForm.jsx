@@ -6,7 +6,7 @@ function statusChoices(current, role) {
   if (status === "Available" || status === "Assigned") {
     choices.push("Damaged", "Lost");
     if (role === "organization_admin") choices.push("Retired");
-  } else if ((status === "Damaged" || status === "Lost") && role === "organization_admin") {
+  } else if ((status === "Damaged" || status === "Lost" || status === "In Repair") && role === "organization_admin") {
     choices.push("Retired");
   }
   return [...new Set(choices)];

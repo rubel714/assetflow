@@ -383,6 +383,18 @@ export default function Assets() {
         floatingFilter: false,
       },
       {
+        colId: "handover",
+        headerName: "Handover",
+        minWidth: 140,
+        flex: 1,
+        filter: false,
+        floatingFilter: false,
+        valueGetter: (params) => {
+          if (params.data?.Status !== "Assigned" && params.data?.Status !== "In Repair") return "—";
+          return params.data?.HandoverStatus === "pending" ? "Pending" : "Accepted";
+        },
+      },
+      {
         field: "CustodianName",
         headerName: "Custodian",
         minWidth: 150,
@@ -486,7 +498,7 @@ export default function Assets() {
               }}
             >
               <option value="">All statuses</option>
-              {["Available", "Assigned", "Damaged", "Lost", "Retired"].map((s) => (
+              {["Available", "Assigned", "Damaged", "Lost", "Retired", "In Repair"].map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>

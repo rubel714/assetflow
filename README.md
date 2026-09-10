@@ -1,6 +1,6 @@
 # AssetFlow
 
-Phase 1 asset lifecycle management: organizations, RBAC, asset register, assign / transfer / return, dashboard counts, and CSV export.
+Phase 1 plus MVP+: asset register, assign / transfer / return, handover acceptance, QR scan, warranty list, maintenance work orders, local attachments, dashboard counts, and CSV export.
 
 ## Run locally
 
@@ -41,7 +41,9 @@ From `server/`:
 npm test
 ```
 
-These checks cover tenant isolation, role permissions, organization settings, and Assigned → Damaged without a prior return.
+These checks cover tenant isolation, role permissions, organization settings, Assigned → Damaged without a prior return, handover acceptance, warranty listing, and maintenance work orders.
+
+Log out and sign in again after this update so new permissions appear in the client.
 
 ## Environment
 

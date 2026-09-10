@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../lib/api";
 import { getSavedUser, roleLabel } from "../lib/globalfunction";
 
@@ -25,15 +26,24 @@ export default function Dashboard() {
 
   const isEmployee = user?.Role === "employee";
   const cards = isEmployee
-    ? [{ label: "Assigned to me", value: summary?.assigned }]
+    ? [
+        { label: "Assigned to me", value: summary?.assigned, to: "/my-assets" },
+        { label: "Pending handovers", value: summary?.pendingHandovers, to: "/my-assets" },
+        { label: "Warranties due", value: summary?.warrantiesDue, to: "/warranties" },
+        { label: "Open maintenance", value: summary?.openMaintenance, to: "/maintenance" },
+      ]
     : [
-        { label: "Total Assets", value: summary?.totalAssets },
-        { label: "Assigned", value: summary?.assigned },
-        { label: "Available", value: summary?.available },
-        { label: "Damaged", value: summary?.damaged },
-        { label: "Lost", value: summary?.lost },
-        { label: "Retired", value: summary?.retired },
-        { label: "Users", value: summary?.users },
+        { label: "Total Assets", value: summary?.totalAssets, to: "/assets" },
+        { label: "Assigned", value: summary?.assigned, to: "/assets" },
+        { label: "Available", value: summary?.available, to: "/assets" },
+        { label: "In Repair", value: summary?.inRepair, to: "/maintenance" },
+        { label: "Damaged", value: summary?.damaged, to: "/assets" },
+        { label: "Lost", value: summary?.lost, to: "/assets" },
+        { label: "Retired", value: summary?.retired, to: "/assets" },
+        { label: "Pending handovers", value: summary?.pendingHandovers, to: "/assets" },
+        { label: "Warranties due", value: summary?.warrantiesDue, to: "/warranties" },
+        { label: "Open maintenance", value: summary?.openMaintenance, to: "/maintenance" },
+        { label: "Users", value: summary?.users, to: "/users" },
       ];
 
   return (
@@ -69,12 +79,12 @@ export default function Dashboard() {
       {!loading && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {cards.map((card) => (
-            <div key={card.label} className="glass rounded-2xl p-5">
+            <Link key={card.label} to={card.to} className="glass rounded-2xl p-5 block hover:bg-white/5">
               <p className="text-xs uppercase tracking-widest text-muted">{card.label}</p>
               <p className="text-3xl font-bold mt-2 text-accent">
                 {summary ? card.value ?? 0 : "—"}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
       )}

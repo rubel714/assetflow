@@ -18,7 +18,9 @@ const ASSET_SELECT = `
     co.Name AS CountryOfOriginName,
     ms.Name AS MaintenanceScheduleName,
     au.UserId AS CustodianId,
-    au.FullName AS CustodianName
+    au.FullName AS CustodianName,
+    aa.AcceptanceStatus AS HandoverStatus,
+    aa.AcceptedAt AS HandoverAcceptedAt
   FROM assets a
   LEFT JOIN asset_categories c ON c.CategoryId = a.CategoryId
   LEFT JOIN locations l ON l.LocationId = a.LocationId
@@ -58,6 +60,11 @@ function canAssignStatus(status) {
   return status === "Available";
 }
 
+function employeeCanViewAsset(user, asset) {
+  if (user?.RoleKey !== "employee") return true;
+  return Boolean(asset && asset.CustodianId === user.UserId);
+}
+
 function buildAssetListWhere(user, query = {}) {
   const params = [user.OrganizationId];
   let where = "WHERE a.OrganizationId = ?";
@@ -92,5 +99,6 @@ module.exports = {
   getAsset,
   attachImageUrl,
   canAssignStatus,
+  employeeCanViewAsset,
   buildAssetListWhere,
 };

@@ -202,6 +202,8 @@ CREATE TABLE IF NOT EXISTS asset_assignments (
   Status VARCHAR(20) NOT NULL DEFAULT 'open',
   AssignedBy INT NULL,
   AssignedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  AcceptanceStatus VARCHAR(20) NOT NULL DEFAULT 'accepted',
+  AcceptedAt DATETIME NULL,
   ClosedAt DATETIME NULL,
   ClosedBy INT NULL,
   KEY idx_assign_open (OrganizationId, AssetId, Status),
@@ -223,6 +225,43 @@ CREATE TABLE IF NOT EXISTS asset_lifecycle_events (
   KEY idx_life_asset (OrganizationId, AssetId, CreatedAt),
   CONSTRAINT fk_life_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId),
   CONSTRAINT fk_life_asset FOREIGN KEY (AssetId) REFERENCES assets (AssetId)
+);
+
+CREATE TABLE IF NOT EXISTS maintenance_requests (
+  RequestId INT AUTO_INCREMENT PRIMARY KEY,
+  OrganizationId INT NOT NULL,
+  AssetId INT NOT NULL,
+  Title VARCHAR(180) NOT NULL,
+  Description TEXT NULL,
+  Status VARCHAR(20) NOT NULL DEFAULT 'open',
+  RequestedBy INT NULL,
+  StartedBy INT NULL,
+  CompletedBy INT NULL,
+  StartedAt DATETIME NULL,
+  CompletedAt DATETIME NULL,
+  WorkNotes VARCHAR(500) NULL,
+  PreviousAssetStatus VARCHAR(20) NULL,
+  CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_maint_org (OrganizationId, Status, CreatedAt),
+  KEY idx_maint_asset (OrganizationId, AssetId),
+  CONSTRAINT fk_maint_req_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId),
+  CONSTRAINT fk_maint_req_asset FOREIGN KEY (AssetId) REFERENCES assets (AssetId)
+);
+
+CREATE TABLE IF NOT EXISTS asset_documents (
+  DocumentId INT AUTO_INCREMENT PRIMARY KEY,
+  OrganizationId INT NOT NULL,
+  AssetId INT NOT NULL,
+  OriginalName VARCHAR(255) NOT NULL,
+  StoredPath VARCHAR(255) NOT NULL,
+  MimeType VARCHAR(120) NULL,
+  SizeBytes INT NULL,
+  UploadedBy INT NULL,
+  CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_docs_asset (OrganizationId, AssetId),
+  CONSTRAINT fk_docs_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId),
+  CONSTRAINT fk_docs_asset FOREIGN KEY (AssetId) REFERENCES assets (AssetId)
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (

@@ -64,12 +64,15 @@ export function hasPermission(user, key) {
       "assets.read",
       "assets.manage",
       "assets.assign",
+      "assets.accept",
+      "maintenance.request",
+      "maintenance.manage",
       "reports.export",
       "dashboard.read",
     ].includes(key);
   }
   if (role === "employee") {
-    return ["assets.read", "dashboard.read"].includes(key);
+    return ["assets.read", "assets.accept", "maintenance.request", "dashboard.read"].includes(key);
   }
   return false;
 }
