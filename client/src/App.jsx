@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { getSavedUser, clearAuth, hasPermission } from "./lib/globalfunction";
+import { getSavedUser, clearAuth, hasPermission, homePath, isSiteAdmin, isActingAsOrganization } from "./lib/globalfunction";
 import { ThemeProvider } from "./lib/ThemeContext";
 import LoginPage from "./pages/Login";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
+import AdminOrganizations from "./pages/AdminOrganizations";
 import Assets from "./pages/Assets";
 import AssetDetail from "./pages/AssetDetail";
 import MyAssets from "./pages/MyAssets";
@@ -27,6 +28,9 @@ import Snackbar from "./components/Snackbar";
 function Protected({ user, onLogout, permission, children }) {
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+  if (isSiteAdmin(user) && !isActingAsOrganization(user) && permission && permission !== "site.manage") {
+    return <Navigate to="/admin/organizations" replace />;
   }
   if (permission && !hasPermission(user, permission)) {
     return (
@@ -62,7 +66,15 @@ export default function App() {
           <Route
             path="/login"
             element={
-              user ? <Navigate to="/" replace /> : <LoginPage onLogin={handleLogin} />
+              user ? <Navigate to={homePath(user)} replace /> : <LoginPage onLogin={handleLogin} />
+            }
+          />
+          <Route
+            path="/admin/organizations"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="site.manage">
+                <AdminOrganizations />
+              </Protected>
             }
           />
           <Route
@@ -226,7 +238,7 @@ export default function App() {
               </Protected>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={homePath(user)} replace />} />
         </Routes>
         <ConfirmDialog />
         <Snackbar />

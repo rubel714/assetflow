@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export default function ImageLightbox({ src, alt = "Asset image", onClose }) {
   useEffect(() => {
@@ -6,15 +7,20 @@ export default function ImageLightbox({ src, alt = "Asset image", onClose }) {
     function onKey(event) {
       if (event.key === "Escape") onClose?.();
     }
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
   }, [src, onClose]);
 
   if (!src) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[10060] flex items-center justify-center px-4 py-8"
+      className="fixed inset-0 z-[10060] grid place-items-center"
       role="dialog"
       aria-modal="true"
       aria-label={alt}
@@ -25,20 +31,21 @@ export default function ImageLightbox({ src, alt = "Asset image", onClose }) {
         aria-label="Close image"
         onClick={onClose}
       />
-      <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-end gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3 py-1.5 rounded-xl border border-white/15 bg-black/40 text-sm font-semibold hover:bg-white/10"
-        >
-          Close
-        </button>
+      <figure className="relative m-0 grid place-items-center">
         <img
           src={src}
           alt={alt}
-          className="relative max-h-[82vh] w-full object-contain rounded-2xl border border-white/10 bg-black/30"
+          className="block max-h-[64vh] max-w-[min(42rem,90vw)] h-auto w-auto object-contain rounded-2xl border border-white/10 bg-black/30"
         />
-      </div>
-    </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 px-3 py-1.5 rounded-xl border border-white/15 bg-black/40 text-sm font-semibold hover:bg-white/10"
+        >
+          Close
+        </button>
+      </figure>
+    </div>,
+    document.body
   );
 }

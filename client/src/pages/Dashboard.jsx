@@ -51,7 +51,7 @@ export default function Dashboard() {
       <div>
         <h2 className="text-2xl font-bold">Dashboard</h2>
         <p className="text-muted text-sm mt-1">
-          Welcome back, {user?.FullName || user?.Username || "user"}.
+          Welcome back, {user?.FullName || user?.Email || "user"}.
         </p>
       </div>
 
@@ -60,8 +60,8 @@ export default function Dashboard() {
         <p className="text-lg font-semibold">{user?.FullName}</p>
         <div className="grid sm:grid-cols-3 gap-4 pt-2 text-sm">
           <div>
-            <p className="text-muted">Username</p>
-            <p className="font-medium">{user?.Username}</p>
+            <p className="text-muted">Email</p>
+            <p className="font-medium">{user?.Email || "—"}</p>
           </div>
           <div>
             <p className="text-muted">Role</p>
@@ -69,7 +69,11 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-muted">Organization</p>
-            <p className="font-medium">{user?.OrganizationName || "—"}</p>
+            <p className="font-medium">
+              {user?.OrganizationCode
+                ? `${user.OrganizationCode} · ${user.OrganizationName}`
+                : user?.OrganizationName || "—"}
+            </p>
           </div>
         </div>
       </div>

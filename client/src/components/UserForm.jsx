@@ -85,14 +85,16 @@ export default function UserForm({
             <p className="text-muted text-xs mt-1">Sign-in details and what this person can do.</p>
           </div>
           <div>
-            <label className="input-label">Username</label>
+            <label className="input-label">Email</label>
             <input
+              type="email"
               className="input-field"
-              value={form.username}
-              onChange={update("username")}
-              placeholder="jane"
-              disabled={isEdit}
+              value={form.email}
+              onChange={update("email")}
+              placeholder="jane@company.com"
+              autoComplete="email"
             />
+            <p className="text-[11px] text-muted mt-1">Used to sign in. Must be unique across AssetFlow.</p>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
@@ -154,16 +156,6 @@ export default function UserForm({
                 placeholder="+880 ..."
               />
             </div>
-            <div>
-              <label className="input-label">Email</label>
-              <input
-                type="email"
-                className="input-field"
-                value={form.email}
-                onChange={update("email")}
-                placeholder="name@company.com"
-              />
-            </div>
           </div>
           <div>
             <label className="input-label">Address</label>
@@ -182,7 +174,7 @@ export default function UserForm({
         <span className="text-sm text-muted">
           {isEdit
             ? "Leave both password fields empty to keep the current password."
-            : "Full name, username, password, and confirm password are required."}
+            : "Full name, email, password, and confirm password are required."}
         </span>
         <div className="flex gap-2 ml-auto">
           <button

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { saveAuth } from "../lib/globalfunction";
+import { homePath, saveAuth } from "../lib/globalfunction";
 import { API_BASE } from "../lib/apiBase";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../lib/ThemeContext";
@@ -10,13 +10,13 @@ import { showSnackbar } from "../lib/snackbar";
 export default function LoginPage({ onLogin }) {
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
+    if (!email.trim() || !password.trim()) {
       showSnackbar("Please fill in all fields", { type: "validation" });
       return;
     }
@@ -26,7 +26,7 @@ export default function LoginPage({ onLogin }) {
     try {
       const response = await axios.post(
         `${API_BASE}/login`,
-        { username: username.trim(), password }
+        { email: email.trim().toLowerCase(), password }
       );
 
       if (response.data.status) {
@@ -35,7 +35,7 @@ export default function LoginPage({ onLogin }) {
           onLogin(response.data.user);
         }
         showSnackbar("Signed in successfully");
-        navigate("/");
+        navigate(homePath(response.data.user));
       } else {
         showSnackbar(response.data.message || "Login failed", { type: "error" });
       }
@@ -119,15 +119,15 @@ export default function LoginPage({ onLogin }) {
 
             <div className="w-full space-y-5 glass p-6 md:p-8 rounded-2xl">
             <div>
-              <label className="input-label">Username</label>
+              <label className="input-label">Email</label>
               <input
-                type="text"
+                type="email"
                 className="input-field"
-                placeholder="Enter username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                placeholder="name@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
-                autoComplete="username"
+                autoComplete="email"
               />
             </div>
             <div>

@@ -1,6 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { clearAuth, getSavedUser, hasPermission, roleLabel } from "../lib/globalfunction";
+import {
+  clearAuth,
+  getActingOrganization,
+  getSavedUser,
+  hasPermission,
+  isActingAsOrganization,
+  isSiteAdmin,
+  roleLabel,
+  setActingOrganization,
+} from "../lib/globalfunction";
 import { ORG_SECTIONS } from "../lib/orgSections";
 import ThemeToggle from "./ThemeToggle";
 import { assetImageSrc } from "../lib/assetImage";
@@ -12,24 +21,35 @@ export default function TopNav({ onLogout }) {
   const [orgOpen, setOrgOpen] = useState(false);
   const orgMenuRef = useRef(null);
   const user = getSavedUser();
+  const acting = getActingOrganization();
+  const siteAdmin = isSiteAdmin(user);
+  const actingAsOrg = isActingAsOrganization(user);
   const canSetup = hasPermission(user, "setup.manage");
-  const orgSections = ORG_SECTIONS.filter((item) => {
-    if (item.key === "settings") return hasPermission(user, "org.manage");
-    return canSetup;
-  });
+  const orgSections = actingAsOrg || !siteAdmin
+    ? ORG_SECTIONS.filter((item) => {
+        if (item.key === "settings") return hasPermission(user, "org.manage");
+        return canSetup;
+      })
+    : [];
   const orgActive = location.pathname.startsWith("/organization");
+  const displayOrgName = acting?.Name || user?.OrganizationName;
+  const displayOrgCode = acting?.Code || user?.OrganizationCode;
+  const displayOrgLogo = acting?.LogoUrl || user?.OrganizationLogoUrl;
 
-  const links = [
-    { to: "/", label: "Dashboard", end: true, show: true },
-    { to: "/my-assets", label: "My Assets", show: user?.Role === "employee" && hasPermission(user, "assets.read") },
-    { to: "/assets", label: "Assets", end: true, show: hasPermission(user, "assets.read") },
-    { to: "/scan", label: "Scan", show: hasPermission(user, "assets.read") },
-    { to: "/assets/new", label: "Add Asset", show: hasPermission(user, "assets.manage") },
-    { to: "/warranties", label: "Warranties", show: hasPermission(user, "assets.read") },
-    { to: "/maintenance", label: "Maintenance", show: hasPermission(user, "maintenance.request") },
-    { to: "/organization/audit", label: "Audit", show: hasPermission(user, "setup.manage") },
-    { to: "/users", label: "Users", show: hasPermission(user, "users.read") },
-  ].filter((link) => link.show);
+  const links = siteAdmin && !actingAsOrg
+    ? [{ to: "/admin/organizations", label: "Organizations", end: true, show: true }]
+    : [
+        { to: "/", label: "Dashboard", end: true, show: true },
+        { to: "/my-assets", label: "My Assets", show: user?.Role === "employee" && hasPermission(user, "assets.read") },
+        { to: "/assets", label: "Assets", end: true, show: hasPermission(user, "assets.read") },
+        { to: "/scan", label: "Scan", show: hasPermission(user, "assets.read") },
+        { to: "/assets/new", label: "Add Asset", show: hasPermission(user, "assets.manage") },
+        { to: "/warranties", label: "Warranties", show: hasPermission(user, "assets.read") },
+        { to: "/maintenance", label: "Maintenance", show: hasPermission(user, "maintenance.request") },
+        { to: "/organization/audit", label: "Audit", show: hasPermission(user, "setup.manage") },
+        { to: "/users", label: "Users", show: hasPermission(user, "users.read") },
+        { to: "/admin/organizations", label: "Organizations", show: siteAdmin && hasPermission(user, "site.manage") },
+      ].filter((link) => link.show);
 
   useEffect(() => {
     function handleClick(event) {
@@ -69,37 +89,69 @@ export default function TopNav({ onLogout }) {
       : "text-muted hover:opacity-80 hover:bg-white/5"
   }`;
 
+  function handleExitOrganization() {
+    setActingOrganization(null);
+    setOpen(false);
+    navigate("/admin/organizations");
+  }
+
   return (
     <header className="sticky top-0 z-[80] glass border-b border-white/10">
+      {actingAsOrg && (
+        <div className="px-4 md:px-6 py-2 bg-amber-500/15 border-b border-amber-400/20 text-sm flex items-center justify-between gap-3">
+          <p>
+            Viewing <span className="font-semibold">{displayOrgName}</span> as site admin
+          </p>
+          <button
+            type="button"
+            onClick={handleExitOrganization}
+            className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-xs font-semibold"
+          >
+            Exit organization
+          </button>
+        </div>
+      )}
       <div className="w-full px-4 md:px-6 h-16 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 shrink-0">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{
-              background: "var(--input-bg)",
-              border: "1px solid var(--text-accent)",
-            }}
-          >
-            <svg
-              className="w-5 h-5 text-accent"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {displayOrgLogo ? (
+            <img
+              src={assetImageSrc(displayOrgLogo)}
+              alt={displayOrgName || "Organization"}
+              className="w-9 h-9 rounded-full object-contain bg-white/10 border border-white/10"
+            />
+          ) : (
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{
+                background: "var(--input-bg)",
+                border: "1px solid var(--text-accent)",
+              }}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-              />
-            </svg>
-          </div>
+              <svg
+                className="w-5 h-5 text-accent"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                />
+              </svg>
+            </div>
+          )}
           <div>
             <h1 className="font-bold text-base leading-tight">
               {import.meta.env.VITE_SITE_TITLE || "AssetFlow"}
             </h1>
             <p className="text-[10px] uppercase tracking-widest text-muted">
-              {user?.OrganizationName || "Asset Management"}
+              {siteAdmin && !actingAsOrg
+                ? "Site administration"
+                : displayOrgCode
+                  ? `${displayOrgCode} · ${displayOrgName}`
+                  : displayOrgName || "Asset Management"}
             </p>
           </div>
         </div>
@@ -164,7 +216,7 @@ export default function TopNav({ onLogout }) {
           ) : null}
           <div className="text-right">
             <p className="text-sm font-medium leading-tight">
-              {user?.FullName || user?.Username || "User"}
+              {user?.FullName || user?.Email || "User"}
             </p>
             <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
           </div>
@@ -248,6 +300,15 @@ export default function TopNav({ onLogout }) {
                 {link.label}
               </NavLink>
             ))}
+          {actingAsOrg && (
+            <button
+              type="button"
+              onClick={handleExitOrganization}
+              className="block w-full text-left px-3 py-2 rounded-lg text-sm font-semibold bg-amber-500/15"
+            >
+              Exit organization
+            </button>
+          )}
           <div className="pt-3 mt-2 border-t border-white/10 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               {assetImageSrc(user?.ImageUrl) ? (
@@ -258,7 +319,7 @@ export default function TopNav({ onLogout }) {
                 />
               ) : null}
               <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{user?.FullName || user?.Username}</p>
+                <p className="text-sm font-medium truncate">{user?.FullName || user?.Email}</p>
                 <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
               </div>
             </div>

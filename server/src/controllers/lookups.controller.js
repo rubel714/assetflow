@@ -50,7 +50,7 @@ const list = async (req, res) => {
       userParams.push(req.user.UserId);
     }
     const [users] = await db.query(
-      `SELECT UserId, FullName, Username, RoleKey, ImagePath
+      `SELECT UserId, FullName, Email, RoleKey, ImagePath
        FROM users
        ${userWhere}
        ORDER BY FullName`,
@@ -73,7 +73,7 @@ const list = async (req, res) => {
       users: users.map((u) => ({
         UserId: u.UserId,
         FullName: u.FullName,
-        Username: u.Username,
+        Email: u.Email,
         Role: u.RoleKey,
         ImageUrl: publicUserImageUrl(u.ImagePath),
       })),

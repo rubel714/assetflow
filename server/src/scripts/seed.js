@@ -3,12 +3,15 @@ const db = require("../config/db");
 const { ROLES, PERMISSIONS, ROLE_PERMISSIONS } = require("../lib/permissions");
 
 const ROLE_NAMES = {
+  [ROLES.SITE_ADMIN]: "Site Admin",
   [ROLES.ORGANIZATION_ADMIN]: "Organization Admin",
   [ROLES.ASSET_MANAGER]: "Asset Manager",
   [ROLES.EMPLOYEE]: "Employee",
 };
 
 const PERMISSION_NAMES = {
+  [PERMISSIONS.SITE_MANAGE]: "Manage organizations (site)",
+  [PERMISSIONS.SITE_ENTER]: "Enter organization (site)",
   [PERMISSIONS.ORG_MANAGE]: "Manage organization",
   [PERMISSIONS.USERS_MANAGE]: "Manage users",
   [PERMISSIONS.USERS_READ]: "View users",
@@ -54,10 +57,35 @@ async function ensureOrg() {
     return rows[0].OrganizationId;
   }
   const [result] = await db.query(
-    "INSERT INTO organizations (Name) VALUES (?)",
-    ["Bashundhara Group"]
+    "INSERT INTO organizations (Name, Code) VALUES (?, ?)",
+    ["Bashundhara Group", "BG"]
   );
   return result.insertId;
+}
+
+async function ensureOrgProfile(orgId, countries) {
+  const [rows] = await db.query(
+    "SELECT Code, Email FROM organizations WHERE OrganizationId = ? LIMIT 1",
+    [orgId]
+  );
+  if (!rows.length || (rows[0].Code && rows[0].Email)) {
+    return;
+  }
+  await db.query(
+    `UPDATE organizations
+     SET LegalName = ?, Code = ?, Email = ?, Phone = ?, Website = ?, Address = ?, CountryId = ?
+     WHERE OrganizationId = ?`,
+    [
+      "Bashundhara Group",
+      rows[0].Code || "BG",
+      "assets@bashundhara.example",
+      "+880 2-41012345",
+      "https://www.bashundhara.com",
+      "Group Head Office, Bashundhara R/A, Dhaka",
+      countries.Bangladesh || null,
+      orgId,
+    ]
+  );
 }
 
 async function insertNamed(table, idCol, orgId, names) {
@@ -110,25 +138,43 @@ async function insertVendors(table, idCol, orgId, records) {
   return ids;
 }
 
-async function ensureUser(orgId, username, password, fullName, roleKey) {
-  const [rows] = await db.query(
-    "SELECT UserId FROM users WHERE Username = ? LIMIT 1",
-    [username]
-  );
+async function ensureSiteAdmin() {
+  const email = "site@assetflow.example";
+  const [rows] = await db.query("SELECT UserId FROM users WHERE Email = ? LIMIT 1", [email]);
   if (rows.length) {
     await db.query(
       `UPDATE users
-       SET OrganizationId = COALESCE(OrganizationId, ?), RoleKey = ?, FullName = ?
+       SET OrganizationId = NULL, RoleKey = ?, FullName = ?, Email = ?, Status = 'active'
        WHERE UserId = ?`,
-      [orgId, roleKey, fullName, rows[0].UserId]
+      [ROLES.SITE_ADMIN, "Site Administrator", email, rows[0].UserId]
+    );
+    return rows[0].UserId;
+  }
+  const hashed = await bcrypt.hash("siteadmin123", 10);
+  const [result] = await db.query(
+    `INSERT INTO users (OrganizationId, Email, Password, FullName, RoleKey, Status)
+     VALUES (NULL, ?, ?, 'Site Administrator', ?, 'active')`,
+    [email, hashed, ROLES.SITE_ADMIN]
+  );
+  return result.insertId;
+}
+
+async function ensureUser(orgId, email, password, fullName, roleKey) {
+  const [rows] = await db.query("SELECT UserId FROM users WHERE Email = ? LIMIT 1", [email]);
+  if (rows.length) {
+    await db.query(
+      `UPDATE users
+       SET OrganizationId = COALESCE(OrganizationId, ?), RoleKey = ?, FullName = ?, Email = ?
+       WHERE UserId = ?`,
+      [orgId, roleKey, fullName, email, rows[0].UserId]
     );
     return rows[0].UserId;
   }
   const hashed = await bcrypt.hash(password, 10);
   const [result] = await db.query(
-    `INSERT INTO users (OrganizationId, Username, Password, FullName, RoleKey, Status)
+    `INSERT INTO users (OrganizationId, Email, Password, FullName, RoleKey, Status)
      VALUES (?, ?, ?, ?, ?, 'active')`,
-    [orgId, username, hashed, fullName, roleKey]
+    [orgId, email, hashed, fullName, roleKey]
   );
   return result.insertId;
 }
@@ -178,25 +224,26 @@ async function ensureAsset(orgId, tag, fields) {
 
 async function seed() {
   await seedLookups();
+  await ensureSiteAdmin();
   const orgId = await ensureOrg();
 
   const adminId = await ensureUser(
     orgId,
-    "admin",
+    "admin@bashundhara.example",
     "admin123",
     "System Administrator",
     ROLES.ORGANIZATION_ADMIN
   );
   const managerId = await ensureUser(
     orgId,
-    "manager",
+    "manager@bashundhara.example",
     "manager123",
     "Alex Manager",
     ROLES.ASSET_MANAGER
   );
   const employeeId = await ensureUser(
     orgId,
-    "employee",
+    "employee@bashundhara.example",
     "employee123",
     "Sam Employee",
     ROLES.EMPLOYEE
@@ -362,6 +409,7 @@ async function seed() {
     "United Kingdom",
     "Singapore",
   ]);
+  await ensureOrgProfile(orgId, countries);
   const maintenanceSchedules = await insertNamed(
     "maintenance_schedules",
     "MaintenanceScheduleId",
@@ -447,7 +495,7 @@ async function seed() {
     );
   }
 
-  console.log("Seeded demo data (admin / admin123)");
+  console.log("Seeded demo data (admin@bashundhara.example / admin123, site@assetflow.example / siteadmin123)");
 }
 
 module.exports = seed;

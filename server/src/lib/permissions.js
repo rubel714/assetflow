@@ -1,10 +1,13 @@
 const ROLES = {
+  SITE_ADMIN: "site_admin",
   ORGANIZATION_ADMIN: "organization_admin",
   ASSET_MANAGER: "asset_manager",
   EMPLOYEE: "employee",
 };
 
 const PERMISSIONS = {
+  SITE_MANAGE: "site.manage",
+  SITE_ENTER: "site.enter",
   ORG_MANAGE: "org.manage",
   USERS_MANAGE: "users.manage",
   USERS_READ: "users.read",
@@ -19,8 +22,11 @@ const PERMISSIONS = {
   DASHBOARD_READ: "dashboard.read",
 };
 
+const TENANT_PERMISSIONS = Object.values(PERMISSIONS).filter((key) => !key.startsWith("site."));
+
 const ROLE_PERMISSIONS = {
-  [ROLES.ORGANIZATION_ADMIN]: Object.values(PERMISSIONS),
+  [ROLES.SITE_ADMIN]: [PERMISSIONS.SITE_MANAGE, PERMISSIONS.SITE_ENTER],
+  [ROLES.ORGANIZATION_ADMIN]: TENANT_PERMISSIONS,
   [ROLES.ASSET_MANAGER]: [
     PERMISSIONS.USERS_READ,
     PERMISSIONS.SETUP_MANAGE,
@@ -46,6 +52,7 @@ const ASSET_STATUSES = ["Available", "Assigned", "Damaged", "Lost", "Retired", "
 module.exports = {
   ROLES,
   PERMISSIONS,
+  TENANT_PERMISSIONS,
   ROLE_PERMISSIONS,
   ASSET_STATUSES,
 };

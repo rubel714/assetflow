@@ -9,6 +9,7 @@ const {
   imageExtFromFile,
 } = require("../services/assetImage.service");
 const { USERS_UPLOAD_DIR, ensureUsersUploadDir } = require("../services/userImage.service");
+const { ORG_UPLOAD_DIR, ensureOrgUploadDir } = require("../services/orgImage.service");
 
 function createImageUpload(getDestDir) {
   const storage = multer.diskStorage({
@@ -61,4 +62,9 @@ const uploadUserImage = createImageUpload((req) => {
   return path.join(USERS_UPLOAD_DIR, String(req.user.OrganizationId));
 });
 
-module.exports = { uploadAssetImage, uploadUserImage };
+const uploadOrgLogo = createImageUpload((req) => {
+  ensureOrgUploadDir();
+  return path.join(ORG_UPLOAD_DIR, String(req.user.OrganizationId));
+});
+
+module.exports = { uploadAssetImage, uploadUserImage, uploadOrgLogo };

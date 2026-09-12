@@ -22,6 +22,16 @@ async function tableExists(conn, table) {
   return rows[0].c > 0;
 }
 
+async function indexExists(conn, table, indexName) {
+  const [rows] = await conn.query(
+    `SELECT COUNT(*) AS c
+     FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?`,
+    [process.env.DB_NAME || "assetflowdb", table, indexName]
+  );
+  return rows[0].c > 0;
+}
+
 async function constraintExists(conn, table, constraint) {
   const [rows] = await conn.query(
     `SELECT COUNT(*) AS c
@@ -97,6 +107,100 @@ async function ensureVendorContactColumns(conn) {
   }
 }
 
+async function ensureOrganizationProfileColumns(conn) {
+  await addColumnIfMissing(conn, "organizations", "LegalName", "VARCHAR(200) NULL");
+  await addColumnIfMissing(conn, "organizations", "Code", "VARCHAR(20) NULL");
+  await addColumnIfMissing(conn, "organizations", "Email", "VARCHAR(150) NULL");
+  await addColumnIfMissing(conn, "organizations", "Phone", "VARCHAR(50) NULL");
+  await addColumnIfMissing(conn, "organizations", "Website", "VARCHAR(255) NULL");
+  await addColumnIfMissing(conn, "organizations", "Address", "VARCHAR(255) NULL");
+  await addColumnIfMissing(conn, "organizations", "CountryId", "INT NULL");
+  await addColumnIfMissing(conn, "organizations", "LogoPath", "VARCHAR(255) NULL");
+  const [orgs] = await conn.query(
+    "SELECT OrganizationId, Code FROM organizations WHERE Code IS NULL OR TRIM(Code) = ''"
+  );
+  for (const org of orgs) {
+    await conn.query("UPDATE organizations SET Code = ? WHERE OrganizationId = ?", [
+      `ORG${org.OrganizationId}`,
+      org.OrganizationId,
+    ]);
+  }
+  await conn.query("ALTER TABLE organizations MODIFY Code VARCHAR(20) NOT NULL");
+  if (!(await indexExists(conn, "organizations", "uq_organizations_code"))) {
+    await conn.query("CREATE UNIQUE INDEX uq_organizations_code ON organizations (Code)");
+  }
+  if (await tableExists(conn, "countries")) {
+    await addFkIfMissing(
+      conn,
+      "fk_org_country",
+      "organizations",
+      "CountryId",
+      "countries",
+      "CountryId"
+    );
+  }
+}
+
+async function ensureOrganizationLicenseColumns(conn) {
+  await addColumnIfMissing(conn, "organizations", "Status", "VARCHAR(20) NOT NULL DEFAULT 'active'");
+  await addColumnIfMissing(conn, "organizations", "AccessStartsAt", "DATETIME NULL");
+  await addColumnIfMissing(conn, "organizations", "AccessEndsAt", "DATETIME NULL");
+  await addColumnIfMissing(conn, "organizations", "MaxUsers", "INT NULL");
+  await addColumnIfMissing(conn, "organizations", "MaxAssets", "INT NULL");
+}
+
+async function ensureUserEmailIdentity(conn) {
+  await addColumnIfMissing(conn, "users", "Email", "VARCHAR(150) NULL");
+  await conn.query(
+    `UPDATE users
+     SET Email = LOWER(TRIM(Email))
+     WHERE Email IS NOT NULL AND TRIM(Email) <> ''`
+  );
+  const hasUsername = await columnExists(conn, "users", "Username");
+  const [missing] = await conn.query(
+    hasUsername
+      ? "SELECT UserId, Username FROM users WHERE Email IS NULL OR TRIM(Email) = ''"
+      : "SELECT UserId FROM users WHERE Email IS NULL OR TRIM(Email) = ''"
+  );
+  for (const user of missing) {
+    const handle = String(user.Username || `user${user.UserId}`)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-");
+    await conn.query("UPDATE users SET Email = ? WHERE UserId = ?", [
+      `${handle || `user${user.UserId}`}@assetflow.local`,
+      user.UserId,
+    ]);
+  }
+
+  const [dupes] = await conn.query(
+    `SELECT Email
+     FROM users
+     WHERE Email IS NOT NULL
+     GROUP BY Email
+     HAVING COUNT(*) > 1`
+  );
+  for (const row of dupes) {
+    const [users] = await conn.query(
+      "SELECT UserId FROM users WHERE Email = ? ORDER BY UserId ASC",
+      [row.Email]
+    );
+    for (const [index, user] of users.entries()) {
+      if (index === 0) continue;
+      await conn.query("UPDATE users SET Email = ? WHERE UserId = ?", [
+        `user${user.UserId}@assetflow.local`,
+        user.UserId,
+      ]);
+    }
+  }
+
+  await conn.query("ALTER TABLE users MODIFY Email VARCHAR(150) NOT NULL");
+  if (!(await indexExists(conn, "users", "uq_users_email"))) {
+    await conn.query("CREATE UNIQUE INDEX uq_users_email ON users (Email)");
+  }
+  await dropColumnIfExists(conn, "users", "Username");
+}
+
 async function ensureAssetLookupColumns(conn) {
   await addColumnIfMissing(conn, "assets", "SupplierId", "INT NULL");
   await addColumnIfMissing(conn, "assets", "ManufacturerId", "INT NULL");
@@ -143,10 +247,12 @@ async function migrate() {
 
   await ensureVendorContactColumns(root);
   await ensureAssetLookupColumns(root);
+  await ensureOrganizationProfileColumns(root);
+  await ensureOrganizationLicenseColumns(root);
   await addColumnIfMissing(root, "users", "ImagePath", "VARCHAR(255) NULL");
   await addColumnIfMissing(root, "users", "Phone", "VARCHAR(50) NULL");
-  await addColumnIfMissing(root, "users", "Email", "VARCHAR(150) NULL");
   await addColumnIfMissing(root, "users", "Address", "VARCHAR(255) NULL");
+  await ensureUserEmailIdentity(root);
   await ensureUserDesignationLink(root);
   await addColumnIfMissing(
     root,
@@ -189,11 +295,22 @@ async function migrate() {
           : row.Role === "asset_manager" || row.Role === "manager"
             ? "asset_manager"
             : "employee";
+      const emailHandle = String(row.Username || `user${row.UserId}`)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, "-");
       await root.query(
         `INSERT IGNORE INTO users
-          (UserId, Username, Password, FullName, RoleKey, Status, CreatedAt)
+          (UserId, Email, Password, FullName, RoleKey, Status, CreatedAt)
          VALUES (?, ?, ?, ?, ?, 'active', ?)`,
-        [row.UserId, row.Username, row.Password, row.FullName, roleKey, row.CreatedAt]
+        [
+          row.UserId,
+          `${emailHandle || `user${row.UserId}`}@assetflow.local`,
+          row.Password,
+          row.FullName,
+          roleKey,
+          row.CreatedAt,
+        ]
       );
     }
     await root.query("DROP TABLE users_legacy");

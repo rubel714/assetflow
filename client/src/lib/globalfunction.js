@@ -1,5 +1,6 @@
 const USER_KEY = "userinfo";
 const TOKEN_KEY = "token";
+const ACTING_ORG_KEY = "actingOrganization";
 
 export function saveAuth(info, token) {
   try {
@@ -48,15 +49,64 @@ export function clearAuth() {
   try {
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(ACTING_ORG_KEY);
   } catch (e) {
     console.warn("Could not clear auth from localStorage", e);
   }
 }
 
+export function getActingOrganization() {
+  try {
+    const s = localStorage.getItem(ACTING_ORG_KEY);
+    return s ? JSON.parse(s) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function setActingOrganization(org) {
+  try {
+    if (!org) {
+      localStorage.removeItem(ACTING_ORG_KEY);
+    } else {
+      localStorage.setItem(ACTING_ORG_KEY, JSON.stringify(org));
+    }
+    window.dispatchEvent(new Event("assetflow-auth-updated"));
+  } catch (e) {
+    console.warn("Could not persist acting organization", e);
+  }
+}
+
+export function isSiteAdmin(user) {
+  return user?.Role === "site_admin";
+}
+
+export function isActingAsOrganization(user = getSavedUser()) {
+  return isSiteAdmin(user) && Boolean(getActingOrganization()?.OrganizationId);
+}
+
+export function homePath(user = getSavedUser()) {
+  if (isSiteAdmin(user) && !isActingAsOrganization(user)) {
+    return "/admin/organizations";
+  }
+  return "/";
+}
+
 export function hasPermission(user, key) {
+  if (isSiteAdmin(user)) {
+    if (isActingAsOrganization(user)) {
+      if (String(key || "").startsWith("site.")) {
+        return Boolean(user?.permissions?.includes(key));
+      }
+      return true;
+    }
+    return Boolean(user?.permissions?.includes(key));
+  }
   if (user?.permissions?.includes(key)) return true;
   const role = user?.Role;
-  if (role === "organization_admin" || role === "admin") return true;
+  if (role === "organization_admin" || role === "admin") {
+    return !String(key || "").startsWith("site.");
+  }
   if (role === "asset_manager") {
     return [
       "users.read",
@@ -79,6 +129,7 @@ export function hasPermission(user, key) {
 
 export function roleLabel(role) {
   const labels = {
+    site_admin: "Site Admin",
     organization_admin: "Organization Admin",
     asset_manager: "Asset Manager",
     employee: "Employee",

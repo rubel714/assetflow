@@ -8,6 +8,7 @@ const lookupsController = require("../controllers/lookups.controller");
 const assetsController = require("../controllers/assets.controller");
 const dashboardController = require("../controllers/dashboard.controller");
 const organizationController = require("../controllers/organization.controller");
+const adminOrganizationsController = require("../controllers/adminOrganizations.controller");
 const auditLogsController = require("../controllers/auditLogs.controller");
 const departmentsController = require("../controllers/departments.controller");
 const designationsController = require("../controllers/designations.controller");
@@ -18,15 +19,52 @@ const { suppliers: suppliersController, manufacturers: manufacturersController }
 const warrantiesController = require("../controllers/warranties.controller");
 const maintenanceController = require("../controllers/maintenance.controller");
 const assetDocumentsController = require("../controllers/assetDocuments.controller");
-const { uploadAssetImage, uploadUserImage } = require("../middleware/assetImageUpload");
+const { uploadAssetImage, uploadUserImage, uploadOrgLogo } = require("../middleware/assetImageUpload");
 const { uploadAssetDocument } = require("../middleware/assetDocumentUpload");
 
 router.use("/", authRoutes);
 
+router.get(
+  "/admin/organizations",
+  requireAuth,
+  requirePermission(PERMISSIONS.SITE_MANAGE),
+  adminOrganizationsController.list
+);
+router.post(
+  "/admin/organizations",
+  requireAuth,
+  requirePermission(PERMISSIONS.SITE_MANAGE),
+  adminOrganizationsController.create
+);
+router.get(
+  "/admin/organizations/:id",
+  requireAuth,
+  requirePermission(PERMISSIONS.SITE_MANAGE),
+  adminOrganizationsController.getOne
+);
+router.patch(
+  "/admin/organizations/:id",
+  requireAuth,
+  requirePermission(PERMISSIONS.SITE_MANAGE),
+  adminOrganizationsController.update
+);
+router.post(
+  "/admin/organizations/:id/enter",
+  requireAuth,
+  requirePermission(PERMISSIONS.SITE_ENTER),
+  adminOrganizationsController.enter
+);
+
 router.get("/dashboard", requireAuth, requirePermission(PERMISSIONS.DASHBOARD_READ), dashboardController.summary);
 router.get("/lookups", requireAuth, lookupsController.list);
 router.get("/organization", requireAuth, requirePermission(PERMISSIONS.ORG_MANAGE), organizationController.get);
-router.patch("/organization", requireAuth, requirePermission(PERMISSIONS.ORG_MANAGE), organizationController.update);
+router.patch(
+  "/organization",
+  requireAuth,
+  requirePermission(PERMISSIONS.ORG_MANAGE),
+  uploadOrgLogo,
+  organizationController.update
+);
 router.get("/audit-logs", requireAuth, requirePermission(PERMISSIONS.SETUP_MANAGE), auditLogsController.list);
 
 router.get("/users", requireAuth, requirePermission(PERMISSIONS.USERS_READ), usersController.list);

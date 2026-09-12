@@ -73,7 +73,8 @@ Employees cannot create users, change setup, create/edit assets, or assign/trans
 - Shared MySQL database; every tenant-owned row has `OrganizationId`.  
 - Organization id comes from the authenticated user, never from the client.  
 - `AssetTag` unique on `(OrganizationId, AssetTag)` (`AF-0001` sequential per org).  
-- Username unique globally in Phase 1.
+- User email unique globally; login is email + password.  
+- Organization code unique globally and required; organization name is display-only.
 
 ---
 
@@ -100,7 +101,7 @@ Employees cannot create users, change setup, create/edit assets, or assign/trans
 - Lifecycle events and asset/user audit writes  
 - Dashboard assigned/available/total counts  
 - CSV export  
-- Seeded demo users: `admin` / `admin123`, `manager` / `manager123`, `employee` / `employee123`
+- Seeded demo users: `admin@bashundhara.example` / `admin123`, `manager@bashundhara.example` / `manager123`, `employee@bashundhara.example` / `employee123`
 
 ### Gaps identified, then closed in this engagement
 
@@ -182,6 +183,8 @@ Stay on the spec order. Do not start Phase 2 or AI first.
 
 **Then Phase 2:** request/approval, procurement, capitalization/depreciation, disposal, email, construction extras, Excel/PDF reports.
 
+**Platform ops (not Phase 2 product scope):** a `site_admin` can license organizations (status, access window, user/asset limits) and enter a tenant for support. Seeded as `site@assetflow.example` / `siteadmin123`.
+
 ---
 
 ## 4. Definition of done (checklist)
@@ -210,6 +213,6 @@ Stay on the spec order. Do not start Phase 2 or AI first.
 1. Start MySQL (XAMPP is fine). Default: `root`, empty password, database `assetflowdb`.  
 2. `server/`: `npm install` then `npm run dev` (migrates + seeds; port **5001**).  
 3. `client/`: `npm install` then `npm run dev` (port **3000**).  
-4. Demo: `admin` / `admin123`, `manager` / `manager123`, `employee` / `employee123`.
+4. Demo: `admin@bashundhara.example` / `admin123`, `manager@bashundhara.example` / `manager123`, `employee@bashundhara.example` / `employee123`.
 
 Restart the API after pulling schema or route changes.

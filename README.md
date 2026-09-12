@@ -25,11 +25,14 @@ The web app is at `http://localhost:3000`.
 
 ## Demo users
 
-| Username | Password    | Role                |
-|----------|-------------|---------------------|
-| admin    | admin123    | Organization Admin  |
-| manager  | manager123  | Asset Manager       |
-| employee | employee123 | Employee            |
+| Email                          | Password      | Role                |
+|--------------------------------|---------------|---------------------|
+| site@assetflow.example         | siteadmin123  | Site Admin          |
+| admin@bashundhara.example      | admin123      | Organization Admin  |
+| manager@bashundhara.example    | manager123    | Asset Manager       |
+| employee@bashundhara.example   | employee123   | Employee            |
+
+Site admin signs in at `/admin/organizations` to license, activate, and enter tenants. Tenant users cannot sign in if their organization is inactive or past its access end date.
 
 Log out and sign in again if you used the previous login shell; Phase 1 uses a JWT.
 

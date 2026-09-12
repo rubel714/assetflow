@@ -10,7 +10,6 @@ import { assetImageSrc } from "../lib/assetImage";
 import { showSnackbar } from "../lib/snackbar";
 
 const emptyForm = {
-  username: "",
   password: "",
   confirmPassword: "",
   fullName: "",
@@ -33,13 +32,13 @@ function ImageCell(params) {
       type="button"
       className="block h-10 w-10 rounded-full overflow-hidden border border-white/10 my-1 cursor-pointer hover:ring-2 hover:ring-cyan-400/70"
       title="View photo"
-      aria-label={`View photo for ${row?.FullName || row?.Username || "user"}`}
+      aria-label={`View photo for ${row?.FullName || row?.Email || "user"}`}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         params?.context?.onPreviewImage?.({
           src,
-          alt: row?.FullName || row?.Username || "User photo",
+          alt: row?.FullName || row?.Email || "User photo",
         });
       }}
     >
@@ -112,7 +111,6 @@ export default function Users() {
     setView("edit");
     setEditing(row);
     setForm({
-      username: row.Username || "",
       password: "",
       confirmPassword: "",
       fullName: row.FullName || "",
@@ -156,11 +154,11 @@ export default function Users() {
       showSnackbar("Full name is required", { type: "validation" });
       return;
     }
+    if (!form.email.trim()) {
+      showSnackbar("Email is required", { type: "validation" });
+      return;
+    }
     if (view === "add") {
-      if (!form.username.trim()) {
-        showSnackbar("Username is required", { type: "validation" });
-        return;
-      }
       if (!form.password) {
         showSnackbar("Password is required", { type: "validation" });
         return;
@@ -189,7 +187,6 @@ export default function Users() {
     data.append("address", form.address.trim());
     data.append("role", form.role);
     if (view === "add") {
-      data.append("username", form.username.trim());
       data.append("password", form.password);
       data.append("confirmPassword", form.confirmPassword);
     } else {
@@ -211,6 +208,7 @@ export default function Users() {
       if (saved.data.user?.UserId === current?.UserId) {
         patchSavedUser({
           FullName: saved.data.user.FullName,
+          Email: saved.data.user.Email,
           ImageUrl: saved.data.user.ImageUrl,
         });
       }
@@ -245,10 +243,10 @@ export default function Users() {
         filter: "agTextColumnFilter",
       },
       {
-        field: "Username",
-        headerName: "Username",
-        minWidth: 140,
-        flex: 1,
+        field: "Email",
+        headerName: "Email",
+        minWidth: 200,
+        flex: 1.2,
         filter: "agTextColumnFilter",
       },
       {
@@ -263,13 +261,6 @@ export default function Users() {
         headerName: "Phone",
         minWidth: 130,
         flex: 1,
-        filter: "agTextColumnFilter",
-      },
-      {
-        field: "Email",
-        headerName: "Email",
-        minWidth: 180,
-        flex: 1.2,
         filter: "agTextColumnFilter",
       },
       {

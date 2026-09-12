@@ -3,21 +3,21 @@ const db = require("../config/db");
 const { writeAudit } = require("../services/audit.service");
 const { ROLES } = require("../lib/permissions");
 const { emptyToNull, resolveDesignation } = require("../lib/designations");
+const { normalizeEmail, isValidEmail } = require("../lib/identity");
+const { assertWithinOrgLimit } = require("../lib/orgAccess");
 const {
   relativeUserImagePath,
   attachUserImageUrl,
   deleteUserImageFile,
 } = require("../services/userImage.service");
 
-const ALLOWED_ROLES = Object.values(ROLES);
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USER_PROFILE_COLUMNS = `u.UserId, u.Username, u.FullName, u.RoleKey, u.Status, u.ImagePath,
+const ALLOWED_ROLES = Object.values(ROLES).filter((role) => role !== ROLES.SITE_ADMIN);
+const USER_PROFILE_COLUMNS = `u.UserId, u.FullName, u.RoleKey, u.Status, u.ImagePath,
        u.DesignationId, d.Name AS Designation, u.Phone, u.Email, u.Address, u.CreatedAt`;
 
 function mapUser(row) {
   return attachUserImageUrl({
     UserId: row.UserId,
-    Username: row.Username,
     FullName: row.FullName,
     Role: row.RoleKey,
     Status: row.Status,
@@ -25,7 +25,7 @@ function mapUser(row) {
     DesignationId: row.DesignationId || null,
     Designation: row.Designation || null,
     Phone: row.Phone || null,
-    Email: row.Email || null,
+    Email: row.Email,
     Address: row.Address || null,
     CreatedAt: row.CreatedAt,
   });
@@ -54,8 +54,11 @@ async function readProfileFields(orgId, body, fallback = {}) {
   const designation = await resolveDesignation(orgId, body, fallback);
   if (designation.error) return { error: designation.error };
 
-  const email = emptyToNull(body.email !== undefined ? body.email : fallback.Email);
-  if (email && !EMAIL_PATTERN.test(email)) {
+  const email = normalizeEmail(body.email !== undefined ? body.email : fallback.Email);
+  if (!email) {
+    return { error: "Email is required" };
+  }
+  if (!isValidEmail(email)) {
     return { error: "Enter a valid email address" };
   }
 
@@ -101,10 +104,10 @@ const list = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const { username, fullName, role } = req.body;
-    if (!username?.trim() || !fullName?.trim()) {
+    const { fullName, role } = req.body;
+    if (!fullName?.trim()) {
       discardUploadedFile(req);
-      return res.status(400).json({ status: false, message: "Username, password, and full name are required" });
+      return res.status(400).json({ status: false, message: "Email, password, and full name are required" });
     }
     const passwordChange = readPasswordChange(req.body, { required: true });
     if (passwordChange.error) {
@@ -123,15 +126,20 @@ const create = async (req, res) => {
       return res.status(400).json({ status: false, message: profile.error });
     }
 
+    const limit = await assertWithinOrgLimit(db, req.user.OrganizationId, "users");
+    if (limit.error) {
+      discardUploadedFile(req);
+      return res.status(403).json({ status: false, message: limit.error });
+    }
+
     const hashed = await bcrypt.hash(passwordChange.password, 10);
     const imagePath = uploadedImagePath(req);
     const [result] = await db.query(
       `INSERT INTO users
-        (OrganizationId, Username, Password, FullName, RoleKey, Status, ImagePath, DesignationId, Phone, Email, Address)
-       VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
+        (OrganizationId, Password, FullName, RoleKey, Status, ImagePath, DesignationId, Phone, Email, Address)
+       VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
       [
         req.user.OrganizationId,
-        username.trim(),
         hashed,
         fullName.trim(),
         roleKey,
@@ -150,7 +158,6 @@ const create = async (req, res) => {
       entityType: "user",
       entityId: result.insertId,
       after: {
-        username: username.trim(),
         role: roleKey,
         ImagePath: imagePath,
         DesignationId: profile.DesignationId,
@@ -164,7 +171,6 @@ const create = async (req, res) => {
       status: true,
       user: mapUser({
         UserId: result.insertId,
-        Username: username.trim(),
         FullName: fullName.trim(),
         RoleKey: roleKey,
         Status: "active",
@@ -175,7 +181,7 @@ const create = async (req, res) => {
   } catch (error) {
     discardUploadedFile(req);
     if (error.code === "ER_DUP_ENTRY") {
-      return res.status(409).json({ status: false, message: "Username is already taken" });
+      return res.status(409).json({ status: false, message: "Email is already in use" });
     }
     console.error(error);
     res.status(500).json({ status: false, message: "Could not create user" });
@@ -280,7 +286,6 @@ const update = async (req, res) => {
       status: true,
       user: mapUser({
         UserId: userId,
-        Username: current.Username,
         FullName: fullName,
         RoleKey: roleKey,
         Status: status,
@@ -290,6 +295,9 @@ const update = async (req, res) => {
     });
   } catch (error) {
     discardUploadedFile(req);
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ status: false, message: "Email is already in use" });
+    }
     console.error(error);
     res.status(500).json({ status: false, message: "Could not update user" });
   }

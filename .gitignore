@@ -8,3 +8,5 @@ server/uploads/assets/*
 !server/uploads/assets/.gitkeep
 server/uploads/documents/*
 !server/uploads/documents/.gitkeep
+server/uploads/organizations/*
+!server/uploads/organizations/.gitkeep

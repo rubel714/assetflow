@@ -5,12 +5,14 @@ const bodyParser = require("body-parser");
 const allRoutes = require("./routes");
 const { ensureAssetsUploadDir } = require("./services/assetImage.service");
 const { ensureUsersUploadDir } = require("./services/userImage.service");
+const { ensureOrgUploadDir } = require("./services/orgImage.service");
 const { ensureDocumentsUploadDir } = require("./services/assetDocument.service");
 
 function createApp() {
   const app = express();
   ensureAssetsUploadDir();
   ensureUsersUploadDir();
+  ensureOrgUploadDir();
   ensureDocumentsUploadDir();
   app.use(cors({ origin: "*", credentials: true }));
   app.use(bodyParser.json({ limit: "10mb" }));
