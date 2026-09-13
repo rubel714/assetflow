@@ -24,6 +24,7 @@ import Manufacturers from "./pages/Manufacturers";
 import Suppliers from "./pages/Suppliers";
 import ConfirmDialog from "./components/ConfirmDialog";
 import Snackbar from "./components/Snackbar";
+import Favicon from "./components/Favicon";
 
 function Protected({ user, onLogout, permission, children }) {
   if (!user) {
@@ -61,6 +62,7 @@ export default function App() {
 
   return (
     <ThemeProvider>
+      <Favicon user={user} />
       <BrowserRouter>
         <Routes>
           <Route

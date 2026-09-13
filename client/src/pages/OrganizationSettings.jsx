@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../lib/api";
-import { getSavedUser, patchSavedUser } from "../lib/globalfunction";
+import { getActingOrganization, getSavedUser, patchSavedUser, setActingOrganization } from "../lib/globalfunction";
 import { assetImageSrc } from "../lib/assetImage";
 import { showSnackbar } from "../lib/snackbar";
 
@@ -109,6 +109,15 @@ export default function OrganizationSettings() {
         OrganizationCode: org.Code || null,
         OrganizationLogoUrl: org.LogoUrl || null,
       });
+      const acting = getActingOrganization();
+      if (acting?.OrganizationId) {
+        setActingOrganization({
+          ...acting,
+          Name: org.Name || acting.Name,
+          Code: org.Code || acting.Code,
+          LogoUrl: org.LogoUrl || null,
+        });
+      }
       showSnackbar("Data updated successfully");
     } catch (err) {
       showSnackbar(err.response?.data?.message || "Could not save organization", { type: "error" });
