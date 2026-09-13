@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import DataGrid from "../components/DataGrid";
+import { confirmAction } from "../lib/confirm";
 import { setActingOrganization } from "../lib/globalfunction";
 import { showSnackbar } from "../lib/snackbar";
 
@@ -70,7 +71,7 @@ function OrgActionsCell(params) {
   if (!row) return null;
   const inactive = row.Status === "active";
   return (
-    <div className="flex flex-wrap items-center gap-1.5 h-full py-1.5 pr-2">
+    <div className="flex flex-wrap items-center gap-1.5">
       <ActionButton className="bg-cyan-600 hover:bg-cyan-500" onClick={() => ctx.onEnter?.(row)}>
         Enter
       </ActionButton>
@@ -149,7 +150,14 @@ export default function AdminOrganizations() {
     setView("add");
   }
 
-  function showEdit(row) {
+  async function showEdit(row) {
+    const ok = await confirmAction({
+      title: "Do you want to edit this organization?",
+      message: `“${row.Name}” will be opened for editing.`,
+      confirmLabel: "Yes",
+      danger: false,
+    });
+    if (!ok) return;
     setEditing(row);
     setForm(fromOrg(row));
     setView("edit");
@@ -196,6 +204,13 @@ export default function AdminOrganizations() {
   }
 
   async function setAccessDays(row, days) {
+    const ok = await confirmAction({
+      title: `Set access for ${days} days?`,
+      message: `Access for “${row.Name}” will be set to ${days} days.`,
+      confirmLabel: "Yes",
+      danger: false,
+    });
+    if (!ok) return;
     try {
       await api.patch(`/admin/organizations/${row.OrganizationId}`, {
         name: row.Name,
@@ -210,6 +225,13 @@ export default function AdminOrganizations() {
   }
 
   async function clearAccess(row) {
+    const ok = await confirmAction({
+      title: "Clear access expiry?",
+      message: `“${row.Name}” will have no access end date.`,
+      confirmLabel: "Yes",
+      danger: false,
+    });
+    if (!ok) return;
     try {
       await api.patch(`/admin/organizations/${row.OrganizationId}`, {
         name: row.Name,
@@ -225,6 +247,16 @@ export default function AdminOrganizations() {
 
   async function toggleStatus(row) {
     const next = row.Status === "active" ? "inactive" : "active";
+    const ok = await confirmAction({
+      title: next === "inactive" ? "Inactivate this organization?" : "Activate this organization?",
+      message:
+        next === "inactive"
+          ? `“${row.Name}” will be inactivated.`
+          : `“${row.Name}” will be activated.`,
+      confirmLabel: "Yes",
+      danger: next === "inactive",
+    });
+    if (!ok) return;
     try {
       await api.patch(`/admin/organizations/${row.OrganizationId}`, {
         name: row.Name,
@@ -239,6 +271,13 @@ export default function AdminOrganizations() {
   }
 
   async function enterOrg(row) {
+    const ok = await confirmAction({
+      title: "Enter this organization?",
+      message: `You will switch into “${row.Name}”.`,
+      confirmLabel: "Yes",
+      danger: false,
+    });
+    if (!ok) return;
     try {
       const res = await api.post(`/admin/organizations/${row.OrganizationId}/enter`);
       setActingOrganization(res.data.organization);
@@ -305,6 +344,10 @@ export default function AdminOrganizations() {
         minWidth: 280,
         flex: 2.2,
         autoHeight: true,
+        cellStyle: {
+          display: "flex",
+          alignItems: "center",
+        },
         cellRenderer: OrgActionsCell,
       },
     ],
@@ -454,7 +497,7 @@ export default function AdminOrganizations() {
         <DataGrid
           rowData={rows}
           columnDefs={columnDefs}
-          rowHeight={72}
+          rowHeight={56}
           context={{
             onEnter: enterOrg,
             onEdit: showEdit,

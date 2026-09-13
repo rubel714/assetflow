@@ -14,7 +14,7 @@ npm run dev
 
 The API migrates the schema and seeds demo data on startup. It listens on `http://localhost:5001`.
 
-3. In `client/`:
+1. In `client/`:
 
 ```bash
 npm install
@@ -25,12 +25,14 @@ The web app is at `http://localhost:3000`.
 
 ## Demo users
 
-| Email                          | Password      | Role                |
-|--------------------------------|---------------|---------------------|
-| site@assetflow.example         | siteadmin123  | Site Admin          |
-| admin@bashundhara.example      | admin123      | Organization Admin  |
-| manager@bashundhara.example    | manager123    | Asset Manager       |
-| employee@bashundhara.example   | employee123   | Employee            |
+
+| Email                                                               | Password     | Role               |
+| ------------------------------------------------------------------- | ------------ | ------------------ |
+| [site@assetflow.example](mailto:site@assetflow.example)             | siteadmin123 | Site Admin         |
+| [admin@bashundhara.example](mailto:admin@bashundhara.example)       | admin123     | Organization Admin |
+| [manager@bashundhara.example](mailto:manager@bashundhara.example)   | manager123   | Asset Manager      |
+| [employee@bashundhara.example](mailto:employee@bashundhara.example) | employee123  | Employee           |
+
 
 Site admin signs in at `/admin/organizations` to license, activate, and enter tenants. Tenant users cannot sign in if their organization is inactive or past its access end date.
 

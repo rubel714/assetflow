@@ -115,6 +115,10 @@ export default function DataGrid({
       minWidth: 120,
       filter: enableColumnFilter ? "agTextColumnFilter" : false,
       floatingFilter: enableColumnFilter,
+      cellStyle: {
+        display: "flex",
+        alignItems: "center",
+      },
       filterParams: {
         buttons: ["reset"],
         debounceMs: 200,
