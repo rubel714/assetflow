@@ -89,7 +89,7 @@ export function homePath(user = getSavedUser()) {
   if (isSiteAdmin(user) && !isActingAsOrganization(user)) {
     return "/admin/organizations";
   }
-  return "/";
+  return "/dashboard";
 }
 
 export function hasPermission(user, key) {

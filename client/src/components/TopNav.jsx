@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   clearAuth,
   getActingOrganization,
@@ -36,10 +36,19 @@ export default function TopNav({ onLogout }) {
   const displayOrgCode = acting?.Code || user?.OrganizationCode;
   const displayOrgLogo = acting?.LogoUrl || user?.OrganizationLogoUrl;
 
-  const links = siteAdmin && !actingAsOrg
-    ? [{ to: "/admin/organizations", label: "Organizations", end: true, show: true }]
+  const homeLink = { to: "/", label: "Home", end: true, show: true };
+  const infoLinks = [
+    { to: "/about", label: "About Us", show: true },
+    { to: "/contact", label: "Contact Us", show: true },
+  ];
+  const trailingPaths = new Set(["/users", "/about", "/contact"]);
+  const links = !user
+    ? [homeLink, ...infoLinks]
+    : siteAdmin && !actingAsOrg
+    ? [homeLink, { to: "/admin/organizations", label: "Organizations", end: true, show: true }, ...infoLinks]
     : [
-        { to: "/", label: "Dashboard", end: true, show: true },
+        homeLink,
+        { to: "/dashboard", label: "Dashboard", end: true, show: true },
         { to: "/my-assets", label: "My Assets", show: user?.Role === "employee" && hasPermission(user, "assets.read") },
         { to: "/assets", label: "Assets", end: true, show: hasPermission(user, "assets.read") },
         { to: "/scan", label: "Scan", show: hasPermission(user, "assets.read") },
@@ -49,6 +58,7 @@ export default function TopNav({ onLogout }) {
         { to: "/organization/audit", label: "Audit", show: hasPermission(user, "setup.manage") },
         { to: "/users", label: "Users", show: hasPermission(user, "users.read") },
         { to: "/admin/organizations", label: "Organizations", show: siteAdmin && hasPermission(user, "site.manage") },
+        ...infoLinks,
       ].filter((link) => link.show);
 
   useEffect(() => {
@@ -73,7 +83,7 @@ export default function TopNav({ onLogout }) {
     }
     setOpen(false);
     setOrgOpen(false);
-    navigate("/login");
+    navigate("/");
   }
 
   const linkClass = ({ isActive }) =>
@@ -147,18 +157,20 @@ export default function TopNav({ onLogout }) {
               {import.meta.env.VITE_SITE_TITLE || "AssetFlow"}
             </h1>
             <p className="text-[10px] uppercase tracking-widest text-muted">
-              {siteAdmin && !actingAsOrg
-                ? "Site administration"
-                : displayOrgCode
-                  ? `${displayOrgCode} · ${displayOrgName}`
-                  : displayOrgName || "Asset Management"}
+              {!user
+                ? "Asset Management"
+                : siteAdmin && !actingAsOrg
+                  ? "Site administration"
+                  : displayOrgCode
+                    ? `${displayOrgCode} · ${displayOrgName}`
+                    : displayOrgName || "Asset Management"}
             </p>
           </div>
         </div>
 
         <nav className="hidden md:flex items-center gap-1">
           {links
-            .filter((link) => link.to !== "/users")
+            .filter((link) => !trailingPaths.has(link.to))
             .map((link) => (
               <NavLink key={link.to} to={link.to} end={link.end} className={linkClass}>
                 {link.label}
@@ -198,7 +210,7 @@ export default function TopNav({ onLogout }) {
             </div>
           )}
           {links
-            .filter((link) => link.to === "/users")
+            .filter((link) => trailingPaths.has(link.to))
             .map((link) => (
               <NavLink key={link.to} to={link.to} end={link.end} className={linkClass}>
                 {link.label}
@@ -207,34 +219,48 @@ export default function TopNav({ onLogout }) {
         </nav>
 
           <div className="hidden md:flex items-center gap-3">
-          {assetImageSrc(user?.ImageUrl) ? (
-            <img
-              src={assetImageSrc(user.ImageUrl)}
-              alt=""
-              className="h-9 w-9 rounded-full object-cover border border-white/10"
-            />
-          ) : null}
-          <div className="text-right">
-            <p className="text-sm font-medium leading-tight">
-              {user?.FullName || user?.Email || "User"}
-            </p>
-            <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
-          </div>
-          <ThemeToggle />
-          <button
-            onClick={handleLogout}
-            className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-full text-red-400 transition-colors"
-            aria-label="Log out"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-          </button>
+          {user ? (
+            <>
+              {assetImageSrc(user?.ImageUrl) ? (
+                <img
+                  src={assetImageSrc(user.ImageUrl)}
+                  alt=""
+                  className="h-9 w-9 rounded-full object-cover border border-white/10"
+                />
+              ) : null}
+              <div className="text-right">
+                <p className="text-sm font-medium leading-tight">
+                  {user?.FullName || user?.Email || "User"}
+                </p>
+                <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
+              </div>
+              <ThemeToggle />
+              <button
+                onClick={handleLogout}
+                className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-full text-red-400 transition-colors"
+                aria-label="Log out"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+              </button>
+            </>
+          ) : (
+            <>
+              <ThemeToggle />
+              <Link
+                to="/login"
+                className="px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-bold hover:bg-cyan-500 transition-colors"
+              >
+                Login
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -258,7 +284,7 @@ export default function TopNav({ onLogout }) {
       {open && (
         <div className="md:hidden border-t border-white/10 px-4 py-3 space-y-1">
           {links
-            .filter((link) => link.to !== "/users")
+            .filter((link) => !trailingPaths.has(link.to))
             .map((link) => (
               <NavLink
                 key={link.to}
@@ -288,7 +314,7 @@ export default function TopNav({ onLogout }) {
             </div>
           )}
           {links
-            .filter((link) => link.to === "/users")
+            .filter((link) => trailingPaths.has(link.to))
             .map((link) => (
               <NavLink
                 key={link.to}
@@ -310,28 +336,43 @@ export default function TopNav({ onLogout }) {
             </button>
           )}
           <div className="pt-3 mt-2 border-t border-white/10 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              {assetImageSrc(user?.ImageUrl) ? (
-                <img
-                  src={assetImageSrc(user.ImageUrl)}
-                  alt=""
-                  className="h-9 w-9 rounded-full object-cover border border-white/10 shrink-0"
-                />
-              ) : null}
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{user?.FullName || user?.Email}</p>
-                <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <button
-                onClick={handleLogout}
-                className="px-3 py-2 text-sm rounded-lg bg-red-500/10 text-red-400"
-              >
-                Log out
-              </button>
-            </div>
+            {user ? (
+              <>
+                <div className="flex items-center gap-3 min-w-0">
+                  {assetImageSrc(user?.ImageUrl) ? (
+                    <img
+                      src={assetImageSrc(user.ImageUrl)}
+                      alt=""
+                      className="h-9 w-9 rounded-full object-cover border border-white/10 shrink-0"
+                    />
+                  ) : null}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{user?.FullName || user?.Email}</p>
+                    <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ThemeToggle />
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-2 text-sm rounded-lg bg-red-500/10 text-red-400"
+                  >
+                    Log out
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <ThemeToggle />
+                <Link
+                  to="/login"
+                  onClick={() => setOpen(false)}
+                  className="px-3 py-2 text-sm rounded-lg bg-cyan-600 text-white font-semibold"
+                >
+                  Login
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

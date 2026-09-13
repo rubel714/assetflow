@@ -3,6 +3,9 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { getSavedUser, clearAuth, hasPermission, homePath, isSiteAdmin, isActingAsOrganization } from "./lib/globalfunction";
 import { ThemeProvider } from "./lib/ThemeContext";
 import LoginPage from "./pages/Login";
+import Home from "./pages/Home";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import AdminOrganizations from "./pages/AdminOrganizations";
@@ -68,7 +71,13 @@ export default function App() {
           <Route
             path="/login"
             element={
-              user ? <Navigate to={homePath(user)} replace /> : <LoginPage onLogin={handleLogin} />
+              user ? (
+                <Navigate to={homePath(user)} replace />
+              ) : (
+                <Layout onLogout={handleLogout}>
+                  <LoginPage onLogin={handleLogin} />
+                </Layout>
+              )
             }
           />
           <Route
@@ -81,6 +90,30 @@ export default function App() {
           />
           <Route
             path="/"
+            element={
+              <Layout onLogout={handleLogout}>
+                <Home user={user} onLogout={handleLogout} />
+              </Layout>
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              <Layout onLogout={handleLogout}>
+                <About />
+              </Layout>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <Layout onLogout={handleLogout}>
+                <Contact />
+              </Layout>
+            }
+          />
+          <Route
+            path="/dashboard"
             element={
               <Protected user={user} onLogout={handleLogout} permission="dashboard.read">
                 <Dashboard />
@@ -240,7 +273,7 @@ export default function App() {
               </Protected>
             }
           />
-          <Route path="*" element={<Navigate to={homePath(user)} replace />} />
+          <Route path="*" element={<Navigate to={user ? homePath(user) : "/"} replace />} />
         </Routes>
         <ConfirmDialog />
         <Snackbar />

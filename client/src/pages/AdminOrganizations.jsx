@@ -282,7 +282,7 @@ export default function AdminOrganizations() {
       const res = await api.post(`/admin/organizations/${row.OrganizationId}/enter`);
       setActingOrganization(res.data.organization);
       showSnackbar(`Entered ${res.data.organization.Name}`);
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       showSnackbar(err.response?.data?.message || "Could not enter organization", { type: "error" });
     }

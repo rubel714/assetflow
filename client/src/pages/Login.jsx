@@ -3,13 +3,10 @@ import axios from "axios";
 import { homePath, saveAuth } from "../lib/globalfunction";
 import { API_BASE } from "../lib/apiBase";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "../lib/ThemeContext";
-import ThemeToggle from "../components/ThemeToggle";
 import { showSnackbar } from "../lib/snackbar";
 
 export default function LoginPage({ onLogin }) {
   const navigate = useNavigate();
-  const { theme } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,57 +47,7 @@ export default function LoginPage({ onLogin }) {
   };
 
   return (
-    <div data-theme={theme} className="min-h-dvh flex flex-col">
-      <div className="fixed inset-0 w-full h-full pointer-events-none z-0">
-        <div
-          className="absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full blur-[100px]"
-          style={{ background: "var(--bg-grad-1)" }}
-        />
-        <div
-          className="absolute bottom-[-10%] right-[-10%] w-96 h-96 rounded-full blur-[100px]"
-          style={{ background: "var(--bg-grad-2)" }}
-        />
-      </div>
-
-      <div className="relative z-10 flex flex-col min-h-dvh w-full">
-        <header className="sticky top-0 z-50 glass border-b border-white/10">
-          <div className="w-full px-4 md:px-6 h-16 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center"
-              style={{
-                background: "var(--input-bg)",
-                border: "1px solid var(--text-accent)",
-              }}
-            >
-              <svg
-                className="w-5 h-5 text-accent"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                />
-              </svg>
-            </div>
-            <div>
-              <h1 className="font-bold text-base leading-tight">
-                {import.meta.env.VITE_SITE_TITLE || "AssetFlow"}
-              </h1>
-              <p className="text-[10px] uppercase tracking-widest text-muted">
-                Asset Management
-              </p>
-            </div>
-            </div>
-            <ThemeToggle />
-          </div>
-        </header>
-
-        <main className="flex-1 w-full px-4 md:px-6 py-8 flex items-center">
+    <div className="min-h-[calc(100dvh-8rem)] flex items-center">
           <div className="w-full grid md:grid-cols-2 gap-10 items-center animate-enter">
             <div className="text-center md:text-left">
               <h2
@@ -211,8 +158,6 @@ export default function LoginPage({ onLogin }) {
             <p className="pt-2 text-center text-[10px] text-muted opacity-50">v1.0.0</p>
             </div>
           </div>
-        </main>
-      </div>
     </div>
   );
 }
