@@ -49,7 +49,7 @@ export default function TopNav({ onLogout }) {
     : [
         homeLink,
         { to: "/dashboard", label: "Dashboard", end: true, show: true },
-        { to: "/my-assets", label: "My Assets", show: user?.Role === "employee" && hasPermission(user, "assets.read") },
+        { to: "/my-assets", label: "My Assets", show: hasPermission(user, "assets.accept") },
         { to: "/assets", label: "Assets", end: true, show: hasPermission(user, "assets.read") },
         { to: "/scan", label: "Scan", show: hasPermission(user, "assets.read") },
         { to: "/assets/new", label: "Add Asset", show: hasPermission(user, "assets.manage") },

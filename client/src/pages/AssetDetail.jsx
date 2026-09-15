@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../lib/api";
-import { getSavedUser, hasPermission } from "../lib/globalfunction";
+import { getSavedUser, hasPermission, roleLabel } from "../lib/globalfunction";
 import { assetImageSrc } from "../lib/assetImage";
 import { showSnackbar } from "../lib/snackbar";
 import AssetQr from "../components/AssetQr";
@@ -203,12 +203,13 @@ export default function AssetDetail() {
           <h3 className="font-semibold">Custody</h3>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="input-label">Employee</label>
+              <label className="input-label">Custodian</label>
               <select className="input-field" value={userId} onChange={(e) => setUserId(e.target.value)}>
-                <option value="">Select employee</option>
+                <option value="">Select person</option>
                 {users.map((u) => (
                   <option key={u.UserId} value={u.UserId}>
                     {u.FullName}
+                    {u.Role ? ` · ${roleLabel(u.Role)}` : ""}
                   </option>
                 ))}
               </select>

@@ -359,12 +359,12 @@ const assign = async (req, res) => {
     const userId = Number(req.body.userId);
     const notes = req.body.notes?.trim() || null;
     if (!userId) {
-      return res.status(400).json({ status: false, message: "An employee is required" });
+      return res.status(400).json({ status: false, message: "A custodian is required" });
     }
 
     const assignee = await getActiveUser(req.user.OrganizationId, userId);
     if (!assignee) {
-      return res.status(400).json({ status: false, message: "Employee was not found" });
+      return res.status(400).json({ status: false, message: "Custodian was not found" });
     }
 
     const conn = await db.getConnection();
@@ -440,11 +440,11 @@ const transfer = async (req, res) => {
     const userId = Number(req.body.userId);
     const notes = req.body.notes?.trim() || null;
     if (!userId) {
-      return res.status(400).json({ status: false, message: "An employee is required" });
+      return res.status(400).json({ status: false, message: "A custodian is required" });
     }
     const assignee = await getActiveUser(req.user.OrganizationId, userId);
     if (!assignee) {
-      return res.status(400).json({ status: false, message: "Employee was not found" });
+      return res.status(400).json({ status: false, message: "Custodian was not found" });
     }
 
     const conn = await db.getConnection();

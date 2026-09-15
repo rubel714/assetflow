@@ -112,7 +112,7 @@ export default function DataGrid({
       sortable: true,
       resizable: true,
       flex: 1,
-      minWidth: 120,
+      minWidth: 80,
       filter: enableColumnFilter ? "agTextColumnFilter" : false,
       floatingFilter: enableColumnFilter,
       cellStyle: {
@@ -128,19 +128,32 @@ export default function DataGrid({
     [enableColumnFilter]
   );
 
+  const autoSizeStrategy = useMemo(
+    () => ({
+      type: "fitGridWidth",
+      defaultMinWidth: 72,
+    }),
+    []
+  );
+
+  function fitColumns(api) {
+    api?.sizeColumnsToFit?.();
+  }
+
   useEffect(() => {
     setPopupParent(document.getElementById("ag-grid-popup-root") || document.body);
   }, []);
 
   return (
-    <div className="glass rounded-2xl overflow-visible">
-      <div className="w-full min-h-[220px]">
+    <div className="glass rounded-2xl overflow-hidden w-full max-w-full">
+      <div className="w-full min-h-[220px] max-w-full">
         <AgGridReact
           ref={gridRef}
           theme={gridTheme}
           rowData={rowData}
           columnDefs={mergedColumnDefs}
           defaultColDef={defaultColDef}
+          autoSizeStrategy={autoSizeStrategy}
           getRowId={getRowId}
           rowHeight={rowHeight}
           popupParent={popupParent || undefined}
@@ -156,6 +169,8 @@ export default function DataGrid({
           paginationPageSize={serverPagination ? pageSizeProp : pageSize}
           paginationPageSizeSelector={false}
           suppressPaginationPanel
+          onGridSizeChanged={(event) => fitColumns(event.api)}
+          onFirstDataRendered={(event) => fitColumns(event.api)}
           onPaginationChanged={() => {
             refreshPageInfo();
             gridRef.current?.api?.refreshCells({ columns: ["_serial"], force: true });
@@ -167,7 +182,10 @@ export default function DataGrid({
           onSortChanged={() => {
             gridRef.current?.api?.refreshCells({ columns: ["_serial"], force: true });
           }}
-          onGridReady={refreshPageInfo}
+          onGridReady={(event) => {
+            refreshPageInfo();
+            fitColumns(event.api);
+          }}
         />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-white/10">

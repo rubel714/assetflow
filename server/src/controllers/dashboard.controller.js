@@ -47,6 +47,8 @@ const summary = async (req, res) => {
           retired: 0,
           inRepair: 0,
           pendingHandovers: Number(pending[0].c || 0),
+          assignedToMe: Number(assigned[0].c || 0),
+          myPendingHandovers: Number(pending[0].c || 0),
           warrantiesDue: Number(warranties[0].c || 0),
           openMaintenance: Number(maintenance[0].c || 0),
           users: 1,
@@ -78,6 +80,21 @@ const summary = async (req, res) => {
        WHERE a.OrganizationId = ? AND aa.Status = 'open' AND aa.AcceptanceStatus = 'pending'`,
       [orgId]
     );
+    const [assignedToMe] = await db.query(
+      `SELECT COUNT(*) AS c
+       FROM assets a
+       JOIN asset_assignments aa ON aa.AssignmentId = a.CurrentAssignmentId
+       WHERE a.OrganizationId = ? AND aa.UserId = ? AND aa.Status = 'open'`,
+      [orgId, req.user.UserId]
+    );
+    const [myPending] = await db.query(
+      `SELECT COUNT(*) AS c
+       FROM assets a
+       JOIN asset_assignments aa ON aa.AssignmentId = a.CurrentAssignmentId
+       WHERE a.OrganizationId = ? AND aa.UserId = ? AND aa.Status = 'open'
+         AND aa.AcceptanceStatus = 'pending'`,
+      [orgId, req.user.UserId]
+    );
     const [warranties] = await db.query(
       `SELECT COUNT(*) AS c
        FROM assets
@@ -104,6 +121,8 @@ const summary = async (req, res) => {
         retired: Number(totals[0].retired || 0),
         inRepair: Number(totals[0].inRepair || 0),
         pendingHandovers: Number(pending[0].c || 0),
+        assignedToMe: Number(assignedToMe[0].c || 0),
+        myPendingHandovers: Number(myPending[0].c || 0),
         warrantiesDue: Number(warranties[0].c || 0),
         openMaintenance: Number(maintenance[0].c || 0),
         users: Number(users[0].c || 0),

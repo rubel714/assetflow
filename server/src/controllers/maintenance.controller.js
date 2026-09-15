@@ -9,10 +9,14 @@ async function loadRequest(organizationId, requestId, conn) {
   const executor = conn || db;
   const [rows] = await executor.query(
     `SELECT r.*, a.AssetTag, a.Name AS AssetName, a.Status AS AssetStatus, a.CurrentAssignmentId,
-            req.FullName AS RequestedByName
+            req.FullName AS RequestedByName,
+            st.FullName AS StartedByName,
+            cm.FullName AS CompletedByName
      FROM maintenance_requests r
      JOIN assets a ON a.AssetId = r.AssetId
      LEFT JOIN users req ON req.UserId = r.RequestedBy
+     LEFT JOIN users st ON st.UserId = r.StartedBy
+     LEFT JOIN users cm ON cm.UserId = r.CompletedBy
      WHERE r.OrganizationId = ? AND r.RequestId = ?
      LIMIT 1`,
     [organizationId, requestId]
@@ -35,11 +39,15 @@ const list = async (req, res) => {
       `SELECT r.RequestId, r.AssetId, r.Title, r.Description, r.Status, r.WorkNotes,
               r.PreviousAssetStatus, r.StartedAt, r.CompletedAt, r.CreatedAt,
               a.AssetTag, a.Name AS AssetName, a.Status AS AssetStatus,
-              req.FullName AS RequestedByName
+              req.FullName AS RequestedByName,
+              st.FullName AS StartedByName,
+              cm.FullName AS CompletedByName
        FROM maintenance_requests r
        JOIN assets a ON a.AssetId = r.AssetId AND a.OrganizationId = r.OrganizationId
        LEFT JOIN asset_assignments aa ON aa.AssignmentId = a.CurrentAssignmentId
        LEFT JOIN users req ON req.UserId = r.RequestedBy
+       LEFT JOIN users st ON st.UserId = r.StartedBy
+       LEFT JOIN users cm ON cm.UserId = r.CompletedBy
        WHERE r.OrganizationId = ? ${extra}
        ORDER BY r.CreatedAt DESC, r.RequestId DESC
        LIMIT 200`,

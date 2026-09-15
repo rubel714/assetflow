@@ -40,6 +40,8 @@ export default function Dashboard() {
         { label: "Damaged", value: summary?.damaged, to: "/assets" },
         { label: "Lost", value: summary?.lost, to: "/assets" },
         { label: "Retired", value: summary?.retired, to: "/assets" },
+        { label: "Assigned to me", value: summary?.assignedToMe, to: "/my-assets" },
+        { label: "My pending handovers", value: summary?.myPendingHandovers, to: "/my-assets" },
         { label: "Pending handovers", value: summary?.pendingHandovers, to: "/assets" },
         { label: "Warranties due", value: summary?.warrantiesDue, to: "/warranties" },
         { label: "Open maintenance", value: summary?.openMaintenance, to: "/maintenance" },

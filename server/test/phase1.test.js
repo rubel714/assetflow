@@ -50,6 +50,43 @@ async function login(email, password) {
   return res.json.token;
 }
 
+const MANAGER_PASSWORD = "manager123";
+const FALLBACK_MANAGER_EMAIL = "handover_manager@phase1.example";
+
+async function ensureAssetManager(adminToken) {
+  const tryLogin = async (email) => {
+    const res = await api("POST", "/login", { body: { email, password: MANAGER_PASSWORD } });
+    return res.status === 200 ? res.json.token : null;
+  };
+
+  let token = await tryLogin(DEMO.manager);
+  let email = DEMO.manager;
+  if (!token) {
+    token = await tryLogin(FALLBACK_MANAGER_EMAIL);
+    email = FALLBACK_MANAGER_EMAIL;
+  }
+  if (!token) {
+    const created = await api("POST", "/users", {
+      token: adminToken,
+      body: {
+        email: FALLBACK_MANAGER_EMAIL,
+        password: MANAGER_PASSWORD,
+        confirmPassword: MANAGER_PASSWORD,
+        fullName: "Handover Manager",
+        role: "asset_manager",
+      },
+    });
+    assert.ok(created.status === 201 || created.status === 409, created.json?.message);
+    token = await login(FALLBACK_MANAGER_EMAIL, MANAGER_PASSWORD);
+    email = FALLBACK_MANAGER_EMAIL;
+  }
+
+  const users = await api("GET", "/users", { token: adminToken });
+  const user = (users.json.users || []).find((u) => u.Email === email);
+  assert.ok(user, "asset manager user was not found");
+  return { token, user };
+}
+
 async function ensureOtherTenant() {
   const [orgs] = await db.query("SELECT OrganizationId FROM organizations WHERE Name = ? LIMIT 1", [
     OTHER_ORG_NAME,
@@ -141,7 +178,8 @@ test("employee only sees assigned assets", async () => {
 });
 
 test("asset manager cannot manage org settings or retire assets", async () => {
-  const token = await login(DEMO.manager, "manager123");
+  const admin = await login(DEMO.admin, "admin123");
+  const { token } = await ensureAssetManager(admin);
   assert.equal((await api("GET", "/organization", { token })).status, 403);
   assert.equal((await api("PATCH", "/organization", { token, body: { name: "Hacked" } })).status, 403);
   assert.equal((await api("POST", "/users", { token, body: { email: "nope@example.com", password: "secret1", fullName: "Nope" } })).status, 403);
@@ -244,6 +282,57 @@ test("employee accepts a pending handover", async () => {
   assert.equal(accepted.json.asset.HandoverStatus, "accepted");
 });
 
+test("manager accepts a pending handover", async () => {
+  const admin = await login(DEMO.admin, "admin123");
+  const { token: managerToken, user: manager } = await ensureAssetManager(admin);
+  const created = await api("POST", "/assets", { token: admin, body: { name: "Manager Handover Probe" } });
+  assert.equal(created.status, 201, created.json?.message);
+  const assetId = created.json.asset.AssetId;
+
+  const assigned = await api("POST", `/assets/${assetId}/assign`, {
+    token: admin,
+    body: { userId: manager.UserId, notes: "manager handover" },
+  });
+  assert.equal(assigned.status, 200, assigned.json?.message);
+  assert.equal(assigned.json.asset.HandoverStatus, "pending");
+
+  const accepted = await api("POST", `/assets/${assetId}/accept`, { token: managerToken });
+  assert.equal(accepted.status, 200, accepted.json?.message);
+  assert.equal(accepted.json.asset.HandoverStatus, "accepted");
+});
+
+test("mine asset list is scoped to the current custodian", async () => {
+  const admin = await login(DEMO.admin, "admin123");
+  const { token: managerToken, user: manager } = await ensureAssetManager(admin);
+  const created = await api("POST", "/assets", { token: admin, body: { name: "Mine Scope Probe" } });
+  assert.equal(created.status, 201, created.json?.message);
+  const assetId = created.json.asset.AssetId;
+
+  const assigned = await api("POST", `/assets/${assetId}/assign`, {
+    token: admin,
+    body: { userId: manager.UserId },
+  });
+  assert.equal(assigned.status, 200, assigned.json?.message);
+
+  const all = await api("GET", "/assets?page=1&pageSize=1000", { token: admin });
+  assert.equal(all.status, 200);
+  assert.ok((all.json.assets || []).some((a) => a.AssetId === assetId));
+
+  const adminMine = await api("GET", "/assets?mine=1&page=1&pageSize=1000", { token: admin });
+  assert.equal(adminMine.status, 200);
+  assert.ok(!(adminMine.json.assets || []).some((a) => a.AssetId === assetId));
+  assert.ok((adminMine.json.total || 0) < (all.json.total || 0));
+
+  const managerMine = await api("GET", "/assets?mine=1&page=1&pageSize=1000", { token: managerToken });
+  assert.equal(managerMine.status, 200);
+  assert.ok((managerMine.json.assets || []).some((a) => a.AssetId === assetId));
+
+  const dash = await api("GET", "/dashboard", { token: managerToken });
+  assert.equal(dash.status, 200);
+  assert.ok(Number(dash.json.summary?.assignedToMe || 0) >= 1);
+  assert.ok(Number(dash.json.summary?.myPendingHandovers || 0) >= 1);
+});
+
 test("lookup is scoped by organization", async () => {
   const demoAdmin = await login(DEMO.admin, "admin123");
   const miss = await api("GET", "/assets/lookup?tag=AF-ISO1", { token: demoAdmin });
@@ -288,7 +377,7 @@ test("employee cannot start a work order; manager can", async () => {
   });
   assert.equal(forbiddenStart.status, 403);
 
-  const manager = await login(DEMO.manager, "manager123");
+  const { token: manager } = await ensureAssetManager(admin);
   const started = await api("PATCH", `/maintenance-requests/${request.json.request.RequestId}`, {
     token: manager,
     body: { action: "start" },

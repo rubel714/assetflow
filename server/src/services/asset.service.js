@@ -19,6 +19,9 @@ const ASSET_SELECT = `
     ms.Name AS MaintenanceScheduleName,
     au.UserId AS CustodianId,
     au.FullName AS CustodianName,
+    aa.AssignedAt,
+    aa.AssignedBy,
+    ab.FullName AS AssignedByName,
     aa.AcceptanceStatus AS HandoverStatus,
     aa.AcceptedAt AS HandoverAcceptedAt
   FROM assets a
@@ -32,6 +35,7 @@ const ASSET_SELECT = `
   LEFT JOIN maintenance_schedules ms ON ms.MaintenanceScheduleId = a.MaintenanceScheduleId
   LEFT JOIN asset_assignments aa ON aa.AssignmentId = a.CurrentAssignmentId
   LEFT JOIN users au ON au.UserId = aa.UserId
+  LEFT JOIN users ab ON ab.UserId = aa.AssignedBy
 `;
 
 async function nextAssetTag(conn, organizationId) {
@@ -69,7 +73,12 @@ function buildAssetListWhere(user, query = {}) {
   const params = [user.OrganizationId];
   let where = "WHERE a.OrganizationId = ?";
 
-  if (user.RoleKey === "employee") {
+  const mine =
+    query.mine === true ||
+    query.mine === 1 ||
+    query.mine === "1" ||
+    String(query.mine || "").toLowerCase() === "true";
+  if (mine || user.RoleKey === "employee") {
     where += " AND aa.UserId = ? AND aa.Status = 'open'";
     params.push(user.UserId);
   }
