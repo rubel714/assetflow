@@ -117,12 +117,14 @@ export function hasPermission(user, key) {
       "assets.accept",
       "maintenance.request",
       "maintenance.manage",
+      "requests.create",
+      "requests.approve",
       "reports.export",
       "dashboard.read",
     ].includes(key);
   }
   if (role === "employee") {
-    return ["assets.read", "assets.accept", "maintenance.request", "dashboard.read"].includes(key);
+    return ["assets.read", "assets.accept", "maintenance.request", "requests.create", "dashboard.read"].includes(key);
   }
   return false;
 }

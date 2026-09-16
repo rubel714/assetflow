@@ -1,6 +1,6 @@
 const db = require("../config/db");
 const { writeAudit, writeLifecycle } = require("../services/audit.service");
-const { ASSET_SELECT, nextAssetTag, getAsset, attachImageUrl, canAssignStatus, buildAssetListWhere, employeeCanViewAsset } = require("../services/asset.service");
+const { ASSET_SELECT, nextAssetTag, getAsset, attachImageUrl, canAssignStatus, buildAssetListWhere, employeeCanViewAsset, employeeRequestedAsset } = require("../services/asset.service");
 const { relativeImagePath, deleteImageFile } = require("../services/assetImage.service");
 const { resolveStatusChange } = require("../lib/statusTransitions");
 const { assertWithinOrgLimit } = require("../lib/orgAccess");
@@ -114,7 +114,7 @@ const getOne = async (req, res) => {
     if (!asset) {
       return res.status(404).json({ status: false, message: "Asset not found" });
     }
-    if (!employeeCanViewAsset(req.user, asset)) {
+    if (!employeeCanViewAsset(req.user, asset) && !(await employeeRequestedAsset(req.user, asset.AssetId))) {
       return res.status(403).json({ status: false, message: "You can only view assets assigned to you" });
     }
 

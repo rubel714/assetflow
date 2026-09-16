@@ -3,8 +3,15 @@ import { settleConfirm, subscribeConfirm } from "../lib/confirm";
 
 export default function ConfirmDialog() {
   const [state, setState] = useState(null);
+  const [note, setNote] = useState("");
+  const [noteError, setNoteError] = useState("");
 
   useEffect(() => subscribeConfirm(setState), []);
+
+  useEffect(() => {
+    setNote("");
+    setNoteError("");
+  }, [state]);
 
   useEffect(() => {
     if (!state) return undefined;
@@ -18,6 +25,14 @@ export default function ConfirmDialog() {
   }, [state]);
 
   if (!state) return null;
+
+  function handleConfirm() {
+    if (state.noteRequired && !note.trim()) {
+      setNoteError("A note is required");
+      return;
+    }
+    settleConfirm(true, note.trim());
+  }
 
   return (
     <div
@@ -37,6 +52,23 @@ export default function ConfirmDialog() {
           {state.title}
         </h3>
         {state.message && <p className="text-muted text-sm mt-2 leading-relaxed">{state.message}</p>}
+        {state.noteRequired && (
+          <div className="mt-4">
+            <label className="input-label" htmlFor="confirm-note">
+              {state.noteLabel || "Notes"}
+            </label>
+            <textarea
+              id="confirm-note"
+              className="input-field min-h-[80px]"
+              value={note}
+              onChange={(e) => {
+                setNote(e.target.value);
+                if (noteError) setNoteError("");
+              }}
+            />
+            {noteError ? <p className="text-red-400 text-xs mt-1">{noteError}</p> : null}
+          </div>
+        )}
         <div className="flex justify-end gap-2 mt-6">
           <button
             type="button"
@@ -52,7 +84,7 @@ export default function ConfirmDialog() {
                 ? "bg-cyan-600 hover:bg-cyan-500"
                 : "bg-red-500 hover:bg-red-400"
             }`}
-            onClick={() => settleConfirm(true)}
+            onClick={handleConfirm}
           >
             {state.confirmLabel}
           </button>

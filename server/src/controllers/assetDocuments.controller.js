@@ -1,6 +1,6 @@
 const db = require("../config/db");
 const { writeAudit } = require("../services/audit.service");
-const { getAsset, employeeCanViewAsset } = require("../services/asset.service");
+const { getAsset, employeeCanViewAsset, employeeRequestedAsset } = require("../services/asset.service");
 const {
   relativeDocumentPath,
   deleteDocumentFile,
@@ -11,7 +11,7 @@ const { isEmployee } = require("../middleware/auth");
 async function assertAssetAccess(req, assetId) {
   const asset = await getAsset(req.user.OrganizationId, assetId);
   if (!asset) return { error: { statusCode: 404, message: "Asset not found" } };
-  if (!employeeCanViewAsset(req.user, asset)) {
+  if (!employeeCanViewAsset(req.user, asset) && !(await employeeRequestedAsset(req.user, asset.AssetId))) {
     return { error: { statusCode: 403, message: "You can only view assets assigned to you" } };
   }
   return { asset };

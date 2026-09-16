@@ -4,6 +4,7 @@ const { test, before, after } = require("node:test");
 const bcrypt = require("bcrypt");
 const { createApp } = require("../src/app");
 const db = require("../src/config/db");
+const migrate = require("../src/scripts/migrate");
 
 const OTHER_ORG_NAME = "Phase1 Isolation Org";
 const OTHER_ORG_CODE = "P1ISO";
@@ -137,6 +138,7 @@ async function ensureOtherTenant() {
 }
 
 before(async () => {
+  await migrate();
   await ensureOtherTenant();
   server = await listen(createApp());
   const addr = server.address();
@@ -394,6 +396,92 @@ test("employee cannot start a work order; manager can", async () => {
   assert.equal(completed.status, 200, completed.json?.message);
   const restored = await api("GET", `/assets/${assetId}`, { token: admin });
   assert.equal(restored.json.asset.Status, "Available");
+});
+
+test("employee can create an asset request but cannot approve", async () => {
+  const employeeToken = await login(DEMO.employee, "employee123");
+  const created = await api("POST", "/asset-requests", {
+    token: employeeToken,
+    body: { requestType: "new_asset", title: "Need a laptop", justification: "Field work", quantity: 1 },
+  });
+  assert.equal(created.status, 201, created.json?.message);
+  const requestId = created.json.request.RequestId;
+  assert.equal(created.json.request.Status, "pending");
+
+  const forbidden = await api("PATCH", `/asset-requests/${requestId}`, {
+    token: employeeToken,
+    body: { action: "approve" },
+  });
+  assert.equal(forbidden.status, 403);
+
+  const admin = await login(DEMO.admin, "admin123");
+  const { token: manager } = await ensureAssetManager(admin);
+  const approved = await api("PATCH", `/asset-requests/${requestId}`, {
+    token: manager,
+    body: { action: "approve" },
+  });
+  assert.equal(approved.status, 200, approved.json?.message);
+  assert.equal(approved.json.request.Status, "approved");
+
+  const again = await api("PATCH", `/asset-requests/${requestId}`, {
+    token: manager,
+    body: { action: "approve" },
+  });
+  assert.equal(again.status, 400);
+});
+
+test("employee request list is own-only; assignment requires Available", async () => {
+  const admin = await login(DEMO.admin, "admin123");
+  const adminReq = await api("POST", "/asset-requests", {
+    token: admin,
+    body: { requestType: "new_asset", title: "Admin hidden request" },
+  });
+  assert.equal(adminReq.status, 201, adminReq.json?.message);
+
+  const employeeToken = await login(DEMO.employee, "employee123");
+  const list = await api("GET", "/asset-requests", { token: employeeToken });
+  assert.equal(list.status, 200);
+  assert.ok(!(list.json.requests || []).some((row) => row.RequestId === adminReq.json.request.RequestId));
+
+  const created = await api("POST", "/assets", { token: admin, body: { name: "Assigned Request Probe" } });
+  assert.equal(created.status, 201, created.json?.message);
+  const assetId = created.json.asset.AssetId;
+  const users = await api("GET", "/users", { token: admin });
+  const employee = (users.json.users || []).find((u) => u.Email === DEMO.employee);
+  const assigned = await api("POST", `/assets/${assetId}/assign`, {
+    token: admin,
+    body: { userId: employee.UserId },
+  });
+  assert.equal(assigned.status, 200, assigned.json?.message);
+
+  const bad = await api("POST", "/asset-requests", {
+    token: employeeToken,
+    body: { requestType: "assignment", title: "Please assign this", assetId },
+  });
+  assert.equal(bad.status, 400);
+
+  const other = await login(OTHER_ADMIN_EMAIL, OTHER_PASSWORD);
+  const cross = await api("PATCH", `/asset-requests/${adminReq.json.request.RequestId}`, {
+    token: other,
+    body: { action: "approve" },
+  });
+  assert.equal(cross.status, 404);
+
+  const available = await api("POST", "/assets", { token: admin, body: { name: "Employee View Request Asset" } });
+  assert.equal(available.status, 201, available.json?.message);
+  const availableId = available.json.asset.AssetId;
+  const assignmentReq = await api("POST", "/asset-requests", {
+    token: employeeToken,
+    body: { requestType: "assignment", title: "Need this available item", assetId: availableId },
+  });
+  assert.equal(assignmentReq.status, 201, assignmentReq.json?.message);
+  const viewed = await api("GET", `/assets/${availableId}`, { token: employeeToken });
+  assert.equal(viewed.status, 200, viewed.json?.message);
+  assert.equal(viewed.json.asset.AssetId, availableId);
+
+  const dash = await api("GET", "/dashboard", { token: admin });
+  assert.equal(dash.status, 200);
+  assert.ok(Number(dash.json.summary?.pendingRequests || 0) >= 1);
 });
 
 test("site admin can manage organizations; tenant admin cannot", async () => {

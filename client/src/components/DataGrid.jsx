@@ -118,6 +118,8 @@ export default function DataGrid({
       cellStyle: {
         display: "flex",
         alignItems: "center",
+        overflow: "hidden",
+        minWidth: 0,
       },
       filterParams: {
         buttons: ["reset"],

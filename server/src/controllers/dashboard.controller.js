@@ -36,6 +36,12 @@ const summary = async (req, res) => {
          WHERE r.OrganizationId = ? AND r.RequestedBy = ? AND r.Status IN ('open', 'in_progress')`,
         [orgId, req.user.UserId]
       );
+      const [pendingRequests] = await db.query(
+        `SELECT COUNT(*) AS c
+         FROM asset_requests
+         WHERE OrganizationId = ? AND RequestedBy = ? AND Status = 'pending'`,
+        [orgId, req.user.UserId]
+      );
       return res.json({
         status: true,
         summary: {
@@ -51,6 +57,7 @@ const summary = async (req, res) => {
           myPendingHandovers: Number(pending[0].c || 0),
           warrantiesDue: Number(warranties[0].c || 0),
           openMaintenance: Number(maintenance[0].c || 0),
+          pendingRequests: Number(pendingRequests[0].c || 0),
           users: 1,
         },
       });
@@ -109,6 +116,12 @@ const summary = async (req, res) => {
        WHERE OrganizationId = ? AND Status IN ('open', 'in_progress')`,
       [orgId]
     );
+    const [pendingRequests] = await db.query(
+      `SELECT COUNT(*) AS c
+       FROM asset_requests
+       WHERE OrganizationId = ? AND Status = 'pending'`,
+      [orgId]
+    );
 
     res.json({
       status: true,
@@ -125,6 +138,7 @@ const summary = async (req, res) => {
         myPendingHandovers: Number(myPending[0].c || 0),
         warrantiesDue: Number(warranties[0].c || 0),
         openMaintenance: Number(maintenance[0].c || 0),
+        pendingRequests: Number(pendingRequests[0].c || 0),
         users: Number(users[0].c || 0),
       },
     });

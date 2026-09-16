@@ -18,6 +18,7 @@ const categoriesController = require("../controllers/categories.controller");
 const { suppliers: suppliersController, manufacturers: manufacturersController } = require("../controllers/contactDirectory.controller");
 const warrantiesController = require("../controllers/warranties.controller");
 const maintenanceController = require("../controllers/maintenance.controller");
+const assetRequestsController = require("../controllers/assetRequests.controller");
 const assetDocumentsController = require("../controllers/assetDocuments.controller");
 const { uploadAssetImage, uploadUserImage, uploadOrgLogo } = require("../middleware/assetImageUpload");
 const { uploadAssetDocument } = require("../middleware/assetDocumentUpload");
@@ -109,6 +110,14 @@ router.patch(
   requireAuth,
   requirePermission(PERMISSIONS.MAINTENANCE_MANAGE),
   maintenanceController.update
+);
+router.get("/asset-requests", requireAuth, requirePermission(PERMISSIONS.REQUESTS_CREATE), assetRequestsController.list);
+router.post("/asset-requests", requireAuth, requirePermission(PERMISSIONS.REQUESTS_CREATE), assetRequestsController.create);
+router.patch(
+  "/asset-requests/:id",
+  requireAuth,
+  requirePermission(PERMISSIONS.REQUESTS_CREATE),
+  assetRequestsController.update
 );
 
 router.get("/assets/export", requireAuth, requirePermission(PERMISSIONS.REPORTS_EXPORT), assetsController.exportCsv);

@@ -167,6 +167,19 @@ body > .ag-popup .ag-filter {
   overflow: hidden;
 }
 
+.ag-cell,
+.ag-cell-wrapper,
+.ag-cell-value {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ag-cell-wrapper,
+.ag-cell-value {
+  width: 100%;
+  text-overflow: ellipsis;
+}
+
 @media print {
   body * {
     visibility: hidden;

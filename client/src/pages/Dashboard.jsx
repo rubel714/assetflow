@@ -31,6 +31,7 @@ export default function Dashboard() {
         { label: "Pending handovers", value: summary?.pendingHandovers, to: "/my-assets" },
         { label: "Warranties due", value: summary?.warrantiesDue, to: "/warranties" },
         { label: "Open maintenance", value: summary?.openMaintenance, to: "/maintenance" },
+        { label: "Pending requests", value: summary?.pendingRequests, to: "/requests" },
       ]
     : [
         { label: "Total Assets", value: summary?.totalAssets, to: "/assets" },
@@ -45,6 +46,7 @@ export default function Dashboard() {
         { label: "Pending handovers", value: summary?.pendingHandovers, to: "/assets" },
         { label: "Warranties due", value: summary?.warrantiesDue, to: "/warranties" },
         { label: "Open maintenance", value: summary?.openMaintenance, to: "/maintenance" },
+        { label: "Pending requests", value: summary?.pendingRequests, to: "/requests" },
         { label: "Users", value: summary?.users, to: "/users" },
       ];
 

@@ -64,9 +64,25 @@ function canAssignStatus(status) {
   return status === "Available";
 }
 
+function isEmployeeUser(user) {
+  return user?.RoleKey === "employee" || user?.Role === "employee";
+}
+
 function employeeCanViewAsset(user, asset) {
-  if (user?.RoleKey !== "employee") return true;
-  return Boolean(asset && asset.CustodianId === user.UserId);
+  if (!isEmployeeUser(user)) return true;
+  return Boolean(asset && Number(asset.CustodianId) === Number(user.UserId));
+}
+
+async function employeeRequestedAsset(user, assetId, conn) {
+  if (!isEmployeeUser(user) || !assetId) return false;
+  const executor = conn || db;
+  const [rows] = await executor.query(
+    `SELECT RequestId FROM asset_requests
+     WHERE OrganizationId = ? AND AssetId = ? AND RequestedBy = ?
+     LIMIT 1`,
+    [user.OrganizationId, assetId, user.UserId]
+  );
+  return rows.length > 0;
 }
 
 function buildAssetListWhere(user, query = {}) {
@@ -109,5 +125,6 @@ module.exports = {
   attachImageUrl,
   canAssignStatus,
   employeeCanViewAsset,
+  employeeRequestedAsset,
   buildAssetListWhere,
 };

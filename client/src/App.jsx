@@ -15,6 +15,7 @@ import MyAssets from "./pages/MyAssets";
 import ScanAsset from "./pages/ScanAsset";
 import Warranties from "./pages/Warranties";
 import Maintenance from "./pages/Maintenance";
+import AssetRequests from "./pages/AssetRequests";
 import Users from "./pages/Users";
 import Departments from "./pages/Departments";
 import Designations from "./pages/Designations";
@@ -157,6 +158,14 @@ export default function App() {
             element={
               <Protected user={user} onLogout={handleLogout} permission="maintenance.request">
                 <Maintenance />
+              </Protected>
+            }
+          />
+          <Route
+            path="/requests"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="requests.create">
+                <AssetRequests />
               </Protected>
             }
           />

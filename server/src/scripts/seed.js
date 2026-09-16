@@ -22,6 +22,8 @@ const PERMISSION_NAMES = {
   [PERMISSIONS.ASSETS_ACCEPT]: "Accept asset handover",
   [PERMISSIONS.MAINTENANCE_REQUEST]: "Request maintenance",
   [PERMISSIONS.MAINTENANCE_MANAGE]: "Manage maintenance work orders",
+  [PERMISSIONS.REQUESTS_CREATE]: "Create asset requests",
+  [PERMISSIONS.REQUESTS_APPROVE]: "Approve asset requests",
   [PERMISSIONS.REPORTS_EXPORT]: "Export reports",
   [PERMISSIONS.DASHBOARD_READ]: "View dashboard",
 };

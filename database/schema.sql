@@ -263,6 +263,34 @@ CREATE TABLE IF NOT EXISTS maintenance_requests (
   CONSTRAINT fk_maint_req_asset FOREIGN KEY (AssetId) REFERENCES assets (AssetId)
 );
 
+CREATE TABLE IF NOT EXISTS asset_requests (
+  RequestId INT AUTO_INCREMENT PRIMARY KEY,
+  OrganizationId INT NOT NULL,
+  RequestType VARCHAR(20) NOT NULL,
+  Status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  Title VARCHAR(180) NOT NULL,
+  Justification TEXT NULL,
+  CategoryId INT NULL,
+  AssetId INT NULL,
+  Quantity INT NOT NULL DEFAULT 1,
+  DepartmentId INT NULL,
+  LocationId INT NULL,
+  ProjectId INT NULL,
+  RequestedBy INT NULL,
+  ReviewedBy INT NULL,
+  ReviewedAt DATETIME NULL,
+  ReviewNotes VARCHAR(500) NULL,
+  CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_areq_org (OrganizationId, Status, CreatedAt),
+  CONSTRAINT fk_areq_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId),
+  CONSTRAINT fk_areq_cat FOREIGN KEY (CategoryId) REFERENCES asset_categories (CategoryId),
+  CONSTRAINT fk_areq_asset FOREIGN KEY (AssetId) REFERENCES assets (AssetId),
+  CONSTRAINT fk_areq_dept FOREIGN KEY (DepartmentId) REFERENCES departments (DepartmentId),
+  CONSTRAINT fk_areq_loc FOREIGN KEY (LocationId) REFERENCES locations (LocationId),
+  CONSTRAINT fk_areq_proj FOREIGN KEY (ProjectId) REFERENCES projects (ProjectId)
+);
+
 CREATE TABLE IF NOT EXISTS asset_documents (
   DocumentId INT AUTO_INCREMENT PRIMARY KEY,
   OrganizationId INT NOT NULL,

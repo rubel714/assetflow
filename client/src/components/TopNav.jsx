@@ -55,6 +55,7 @@ export default function TopNav({ onLogout }) {
         { to: "/assets/new", label: "Add Asset", show: hasPermission(user, "assets.manage") },
         { to: "/warranties", label: "Warranties", show: hasPermission(user, "assets.read") },
         { to: "/maintenance", label: "Maintenance", show: hasPermission(user, "maintenance.request") },
+        { to: "/requests", label: "Requests", show: hasPermission(user, "requests.create") },
         { to: "/organization/audit", label: "Audit", show: hasPermission(user, "setup.manage") },
         { to: "/users", label: "Users", show: hasPermission(user, "users.read") },
         { to: "/admin/organizations", label: "Organizations", show: siteAdmin && hasPermission(user, "site.manage") },

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import api from "../lib/api";
 import { getSavedUser, hasPermission, roleLabel } from "../lib/globalfunction";
 import { assetImageSrc } from "../lib/assetImage";
@@ -9,6 +9,8 @@ import { confirmAction } from "../lib/confirm";
 
 export default function AssetDetail() {
   const { id } = useParams();
+  const location = useLocation();
+  const fromRequests = location.state?.from === "/requests";
   const user = getSavedUser();
   const [asset, setAsset] = useState(null);
   const [history, setHistory] = useState([]);
@@ -17,6 +19,7 @@ export default function AssetDetail() {
   const [userId, setUserId] = useState("");
   const [notes, setNotes] = useState("");
   const [loadFailed, setLoadFailed] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   function load() {
     return Promise.all([
@@ -27,12 +30,16 @@ export default function AssetDetail() {
       setHistory(res.data.history || []);
       setDocuments(docs.data.documents || []);
       setLoadFailed(false);
+      setLoadError("");
     });
   }
 
   useEffect(() => {
-    load().catch(() => {
+    setAsset(null);
+    setLoadFailed(false);
+    load().catch((err) => {
       setLoadFailed(true);
+      setLoadError(err.response?.data?.message || "This asset could not be loaded.");
     });
     api.get("/lookups").then((res) => setUsers(res.data.users || [])).catch(() => {});
   }, [id]);
@@ -97,12 +104,12 @@ export default function AssetDetail() {
   if (loadFailed) {
     return (
       <div className="space-y-4">
-        <p className="text-muted">This asset could not be loaded.</p>
+        <p className="text-red-400">{loadError || "This asset could not be loaded."}</p>
         <Link
-          to="/assets"
+          to={fromRequests ? "/requests" : "/assets"}
           className="inline-flex px-4 py-2 rounded-xl border border-white/10 text-sm font-semibold hover:bg-white/5"
         >
-          Back to assets
+          {fromRequests ? "Back to requests" : "Back to assets"}
         </Link>
       </div>
     );
@@ -140,10 +147,10 @@ export default function AssetDetail() {
         </div>
         <div className="flex gap-2 shrink-0">
           <Link
-            to="/assets"
+            to={fromRequests ? "/requests" : "/assets"}
             className="px-4 py-2 rounded-xl border border-white/10 text-sm font-semibold hover:bg-white/5"
           >
-            Back to assets
+            {fromRequests ? "Back to requests" : "Back to assets"}
           </Link>
           {canManage && (
             <Link
