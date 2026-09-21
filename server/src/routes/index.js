@@ -57,6 +57,12 @@ router.post(
 );
 
 router.get("/dashboard", requireAuth, requirePermission(PERMISSIONS.DASHBOARD_READ), dashboardController.summary);
+router.get(
+  "/dashboard/charts",
+  requireAuth,
+  requirePermission(PERMISSIONS.DASHBOARD_READ),
+  dashboardController.charts
+);
 router.get("/lookups", requireAuth, lookupsController.list);
 router.get("/organization", requireAuth, requirePermission(PERMISSIONS.ORG_MANAGE), organizationController.get);
 router.patch(

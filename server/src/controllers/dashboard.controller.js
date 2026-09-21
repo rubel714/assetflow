@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { isEmployee } = require("../middleware/auth");
+const { pastMonthKeys, upcomingMonthKeys, fillMonths, namedTotals } = require("../lib/chartSeries");
 
 const summary = async (req, res) => {
   try {
@@ -148,4 +149,157 @@ const summary = async (req, res) => {
   }
 };
 
-module.exports = { summary };
+function pastStartSql() {
+  return "DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 11 MONTH), '%Y-%m-01')";
+}
+
+const charts = async (req, res) => {
+  try {
+    if (isEmployee(req.user)) {
+      return res.json({ status: true, charts: null });
+    }
+
+    const orgId = req.user.OrganizationId;
+    const months = pastMonthKeys(12);
+    const warrantyMonths = upcomingMonthKeys(6);
+    const since = pastStartSql();
+
+    const [
+      [openedRows],
+      [completedRows],
+      [spendRows],
+      [purchaseRows],
+      [categoryRows],
+      [departmentRows],
+      [locationRows],
+      [warrantyRows],
+      [assignmentRows],
+      [transferRows],
+      [requestRows],
+    ] = await Promise.all([
+      db.query(
+        `SELECT DATE_FORMAT(CreatedAt, '%Y-%m') AS ym, COUNT(*) AS c
+         FROM maintenance_requests
+         WHERE OrganizationId = ? AND CreatedAt >= ${since}
+         GROUP BY ym`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT DATE_FORMAT(CompletedAt, '%Y-%m') AS ym, COUNT(*) AS c
+         FROM maintenance_requests
+         WHERE OrganizationId = ? AND Status = 'completed'
+           AND CompletedAt IS NOT NULL AND CompletedAt >= ${since}
+         GROUP BY ym`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT DATE_FORMAT(CompletedAt, '%Y-%m') AS ym, COALESCE(SUM(Cost), 0) AS total
+         FROM maintenance_requests
+         WHERE OrganizationId = ? AND Status = 'completed'
+           AND CompletedAt IS NOT NULL AND CompletedAt >= ${since}
+         GROUP BY ym`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT DATE_FORMAT(PurchaseDate, '%Y-%m') AS ym, COALESCE(SUM(PurchaseCost), 0) AS total
+         FROM assets
+         WHERE OrganizationId = ? AND PurchaseDate IS NOT NULL AND PurchaseDate >= ${since}
+         GROUP BY ym`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT COALESCE(c.Name, 'Uncategorized') AS name, COALESCE(SUM(a.PurchaseCost), 0) AS total
+         FROM assets a
+         LEFT JOIN asset_categories c ON c.CategoryId = a.CategoryId
+         WHERE a.OrganizationId = ?
+         GROUP BY c.CategoryId, c.Name
+         ORDER BY total DESC, name ASC
+         LIMIT 12`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT COALESCE(d.Name, 'Unassigned') AS name, COUNT(*) AS total
+         FROM assets a
+         LEFT JOIN departments d ON d.DepartmentId = a.DepartmentId
+         WHERE a.OrganizationId = ?
+         GROUP BY d.DepartmentId, d.Name
+         ORDER BY total DESC, name ASC
+         LIMIT 12`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT COALESCE(l.Name, 'Unassigned') AS name, COUNT(*) AS total
+         FROM assets a
+         LEFT JOIN locations l ON l.LocationId = a.LocationId
+         WHERE a.OrganizationId = ?
+         GROUP BY l.LocationId, l.Name
+         ORDER BY total DESC, name ASC
+         LIMIT 12`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT DATE_FORMAT(LastWarrantyDate, '%Y-%m') AS ym, COUNT(*) AS c
+         FROM assets
+         WHERE OrganizationId = ?
+           AND LastWarrantyDate >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+           AND LastWarrantyDate < DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL 6 MONTH), '%Y-%m-01')
+         GROUP BY ym`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT DATE_FORMAT(AssignedAt, '%Y-%m') AS ym, COUNT(*) AS c
+         FROM asset_assignments
+         WHERE OrganizationId = ? AND AssignedAt >= ${since}
+         GROUP BY ym`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT DATE_FORMAT(CreatedAt, '%Y-%m') AS ym, COUNT(*) AS c
+         FROM asset_lifecycle_events
+         WHERE OrganizationId = ? AND EventType = 'transfer' AND CreatedAt >= ${since}
+         GROUP BY ym`,
+        [orgId]
+      ),
+      db.query(
+        `SELECT DATE_FORMAT(CreatedAt, '%Y-%m') AS ym, Status AS status, COUNT(*) AS c
+         FROM asset_requests
+         WHERE OrganizationId = ? AND CreatedAt >= ${since}
+         GROUP BY ym, Status`,
+        [orgId]
+      ),
+    ]);
+
+    const requestStatuses = ["pending", "approved", "rejected", "cancelled"];
+    const requestsByStatus = {};
+    for (const status of requestStatuses) {
+      requestsByStatus[status] = fillMonths(
+        months,
+        requestRows.filter((row) => row.status === status)
+      );
+    }
+
+    res.json({
+      status: true,
+      charts: {
+        months,
+        warrantyMonths,
+        maintenanceOpened: fillMonths(months, openedRows),
+        maintenanceCompleted: fillMonths(months, completedRows),
+        maintenanceSpend: fillMonths(months, spendRows, "total"),
+        purchaseCost: fillMonths(months, purchaseRows, "total"),
+        valueByCategory: namedTotals(categoryRows),
+        assetsByDepartment: namedTotals(departmentRows),
+        assetsByLocation: namedTotals(locationRows),
+        warrantiesUpcoming: fillMonths(warrantyMonths, warrantyRows),
+        assignments: fillMonths(months, assignmentRows),
+        transfers: fillMonths(months, transferRows),
+        requestsByStatus,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: false, message: "Could not load dashboard charts" });
+  }
+};
+
+module.exports = { summary, charts };

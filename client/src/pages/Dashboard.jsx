@@ -1,19 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../lib/api";
 import { getSavedUser } from "../lib/globalfunction";
+import { useTheme } from "../lib/ThemeContext";
+import { buildDashboardCharts, chartPalette } from "../lib/dashboardCharts";
+import ChartCard from "../components/ChartCard";
 
 export default function Dashboard() {
   const user = getSavedUser();
+  const { theme } = useTheme();
   const [summary, setSummary] = useState(null);
+  const [charts, setCharts] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .get("/dashboard")
-      .then((res) => {
-        if (!cancelled) setSummary(res.data.summary);
+    Promise.all([api.get("/dashboard"), api.get("/dashboard/charts")])
+      .then(([summaryRes, chartRes]) => {
+        if (cancelled) return;
+        setSummary(summaryRes.data.summary);
+        setCharts(chartRes.data.charts || null);
       })
       .catch(() => {})
       .finally(() => {
@@ -23,6 +29,21 @@ export default function Dashboard() {
       cancelled = true;
     };
   }, []);
+
+  const palette = useMemo(() => chartPalette(theme), [theme]);
+  const chartCards = useMemo(() => buildDashboardCharts(charts, palette), [charts, palette]);
+  const sections = useMemo(() => {
+    const grouped = [];
+    for (const card of chartCards) {
+      const last = grouped[grouped.length - 1];
+      if (!last || last.section !== card.section) {
+        grouped.push({ section: card.section, items: [card] });
+      } else {
+        last.items.push(card);
+      }
+    }
+    return grouped;
+  }, [chartCards]);
 
   const isEmployee = user?.Role === "employee";
   const cards = isEmployee
@@ -62,16 +83,30 @@ export default function Dashboard() {
       {loading && <p className="text-muted">Loading dashboard…</p>}
 
       {!loading && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {cards.map((card) => (
-            <Link key={card.label} to={card.to} className="glass rounded-2xl p-5 block hover:bg-white/5">
-              <p className="text-xs uppercase tracking-widest text-muted">{card.label}</p>
-              <p className="text-3xl font-bold mt-2 text-accent">
-                {summary ? card.value ?? 0 : "—"}
-              </p>
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {cards.map((card) => (
+              <Link key={card.label} to={card.to} className="glass rounded-2xl p-5 block hover:bg-white/5">
+                <p className="text-xs uppercase tracking-widest text-muted">{card.label}</p>
+                <p className="text-3xl font-bold mt-2 text-accent">
+                  {summary ? card.value ?? 0 : "—"}
+                </p>
+              </Link>
+            ))}
+          </div>
+
+          {!isEmployee &&
+            sections.map((group) => (
+              <section key={group.section} className="space-y-3">
+                <h3 className="text-xs uppercase tracking-widest text-muted">{group.section}</h3>
+                <div className="grid lg:grid-cols-2 gap-4">
+                  {group.items.map((item) => (
+                    <ChartCard key={item.title} title={item.title} option={item.option} height={item.height} />
+                  ))}
+                </div>
+              </section>
+            ))}
+        </>
       )}
     </div>
   );

@@ -5,6 +5,15 @@ const { isEmployee } = require("../middleware/auth");
 
 const OPEN_STATUSES = new Set(["open", "in_progress"]);
 
+function parseOptionalCost(value) {
+  if (value === undefined || value === null || value === "") return { value: null };
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) {
+    return { error: "Cost must be a number 0 or greater" };
+  }
+  return { value: Math.round(n * 100) / 100 };
+}
+
 async function loadRequest(organizationId, requestId, conn) {
   const executor = conn || db;
   const [rows] = await executor.query(
@@ -37,7 +46,7 @@ const list = async (req, res) => {
     }
     const [rows] = await db.query(
       `SELECT r.RequestId, r.AssetId, r.Title, r.Description, r.Status, r.WorkNotes,
-              r.PreviousAssetStatus, r.StartedAt, r.CompletedAt, r.CreatedAt,
+              r.PreviousAssetStatus, r.Cost, r.StartedAt, r.CompletedAt, r.CreatedAt,
               a.AssetTag, a.Name AS AssetName, a.Status AS AssetStatus,
               req.FullName AS RequestedByName,
               st.FullName AS StartedByName,
@@ -195,15 +204,21 @@ const update = async (req, res) => {
           await conn.rollback();
           return res.status(400).json({ status: false, message: "This request cannot be completed" });
         }
+        const parsedCost = parseOptionalCost(req.body.cost);
+        if (parsedCost.error) {
+          await conn.rollback();
+          return res.status(400).json({ status: false, message: parsedCost.error });
+        }
         if (row.Status === "in_progress") {
           await restoreAssetStatus(conn, req, row);
         }
         await conn.query(
           `UPDATE maintenance_requests
            SET Status = 'completed', CompletedBy = ?, CompletedAt = NOW(),
-               WorkNotes = COALESCE(?, WorkNotes)
+               WorkNotes = COALESCE(?, WorkNotes),
+               Cost = COALESCE(?, Cost)
            WHERE RequestId = ? AND OrganizationId = ?`,
-          [req.user.UserId, workNotes, requestId, req.user.OrganizationId]
+          [req.user.UserId, workNotes, parsedCost.value, requestId, req.user.OrganizationId]
         );
       } else {
         if (!OPEN_STATUSES.has(row.Status)) {

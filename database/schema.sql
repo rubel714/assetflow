@@ -255,6 +255,7 @@ CREATE TABLE IF NOT EXISTS maintenance_requests (
   CompletedAt DATETIME NULL,
   WorkNotes VARCHAR(500) NULL,
   PreviousAssetStatus VARCHAR(20) NULL,
+  Cost DECIMAL(12,2) NULL,
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_maint_org (OrganizationId, Status, CreatedAt),

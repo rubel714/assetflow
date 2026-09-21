@@ -391,11 +391,30 @@ test("employee cannot start a work order; manager can", async () => {
 
   const completed = await api("PATCH", `/maintenance-requests/${request.json.request.RequestId}`, {
     token: manager,
-    body: { action: "complete" },
+    body: { action: "complete", cost: 77.5 },
   });
   assert.equal(completed.status, 200, completed.json?.message);
+  assert.equal(Number(completed.json.request.Cost), 77.5);
   const restored = await api("GET", `/assets/${assetId}`, { token: admin });
   assert.equal(restored.json.asset.Status, "Available");
+
+  const charts = await api("GET", "/dashboard/charts", { token: admin });
+  assert.equal(charts.status, 200, charts.json?.message);
+  assert.equal(charts.json.charts.months.length, 12);
+  const currentMonth = charts.json.charts.months.at(-1);
+  assert.ok(currentMonth);
+  const spendThisMonth = Number(charts.json.charts.maintenanceSpend.at(-1) || 0);
+  assert.ok(spendThisMonth >= 77.5);
+
+  const employeeCharts = await api("GET", "/dashboard/charts", { token: employeeToken });
+  assert.equal(employeeCharts.status, 200);
+  assert.equal(employeeCharts.json.charts, null);
+
+  const other = await login(OTHER_ADMIN_EMAIL, OTHER_PASSWORD);
+  const otherCharts = await api("GET", "/dashboard/charts", { token: other });
+  assert.equal(otherCharts.status, 200);
+  assert.ok(otherCharts.json.charts);
+  assert.equal(otherCharts.json.charts.months.length, 12);
 });
 
 test("employee can create an asset request but cannot approve", async () => {

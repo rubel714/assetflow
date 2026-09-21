@@ -261,6 +261,7 @@ async function migrate() {
     "VARCHAR(20) NOT NULL DEFAULT 'accepted'"
   );
   await addColumnIfMissing(root, "asset_assignments", "AcceptedAt", "DATETIME NULL");
+  await addColumnIfMissing(root, "maintenance_requests", "Cost", "DECIMAL(12,2) NULL");
 
   const { ROLES, PERMISSIONS, ROLE_PERMISSIONS } = require("../lib/permissions");
   for (const key of Object.values(ROLES)) {

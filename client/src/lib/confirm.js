@@ -19,18 +19,29 @@ export function confirmAction({
   danger = true,
   noteRequired = false,
   noteLabel = "Notes",
+  costPrompt = false,
+  costLabel = "Cost",
 } = {}) {
   return new Promise((resolve) => {
     if (resolver) {
-      resolver(current?.noteRequired ? { ok: false, note: "" } : false);
+      resolver(current?.noteRequired || current?.costPrompt ? { ok: false } : false);
     }
     resolver = resolve;
-    current = { title, message, confirmLabel, danger, noteRequired, noteLabel };
+    current = {
+      title,
+      message,
+      confirmLabel,
+      danger,
+      noteRequired,
+      noteLabel,
+      costPrompt,
+      costLabel,
+    };
     notify();
   });
 }
 
-export function settleConfirm(result, note) {
+export function settleConfirm(result, extras = {}) {
   const done = resolver;
   const snapshot = current;
   resolver = null;
@@ -38,7 +49,9 @@ export function settleConfirm(result, note) {
   notify();
   if (!done) return;
   if (snapshot?.noteRequired) {
-    done(result ? { ok: true, note: String(note || "").trim() } : { ok: false, note: "" });
+    done(result ? { ok: true, note: String(extras.note || "").trim() } : { ok: false, note: "" });
+  } else if (snapshot?.costPrompt) {
+    done(result ? { ok: true, cost: extras.cost } : { ok: false, cost: "" });
   } else {
     done(Boolean(result));
   }

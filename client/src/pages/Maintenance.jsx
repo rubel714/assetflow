@@ -130,9 +130,11 @@ export default function Maintenance() {
       },
       complete: {
         title: "Complete this work order?",
-        message: `${label}${asset} will be marked completed.`,
+        message: `${label}${asset} will be marked completed. Optional cost is stored for spend charts.`,
         confirmLabel: "Complete",
         danger: false,
+        costPrompt: true,
+        costLabel: "Maintenance cost",
       },
       cancel: {
         title: "Cancel this work order?",
@@ -142,12 +144,16 @@ export default function Maintenance() {
       },
     };
     const prompt = prompts[action];
-    if (prompt) {
-      const ok = await confirmAction(prompt);
-      if (!ok) return;
-    }
+    if (!prompt) return;
+    const result = await confirmAction(prompt);
+    const confirmed = prompt.costPrompt ? result?.ok : result;
+    if (!confirmed) return;
     try {
-      await api.patch(`/maintenance-requests/${row.RequestId}`, { action });
+      const body = { action };
+      if (prompt.costPrompt && result.cost !== undefined && result.cost !== "") {
+        body.cost = Number(result.cost);
+      }
+      await api.patch(`/maintenance-requests/${row.RequestId}`, body);
       await load();
       showSnackbar("Work order updated");
     } catch (err) {
@@ -173,6 +179,14 @@ export default function Maintenance() {
       { field: "AssetName", headerName: "Asset", minWidth: 110, flex: 1 },
       { field: "Title", headerName: "Request", minWidth: 120, flex: 1.2 },
       { field: "Status", headerName: "Status", minWidth: 90, flex: 0.6 },
+      {
+        field: "Cost",
+        headerName: "Cost",
+        minWidth: 80,
+        flex: 0.5,
+        valueFormatter: (params) =>
+          params.value == null || params.value === "" ? "—" : Number(params.value).toFixed(2),
+      },
       {
         colId: "requested",
         headerName: "Requested",

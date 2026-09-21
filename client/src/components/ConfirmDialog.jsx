@@ -4,13 +4,17 @@ import { settleConfirm, subscribeConfirm } from "../lib/confirm";
 export default function ConfirmDialog() {
   const [state, setState] = useState(null);
   const [note, setNote] = useState("");
+  const [cost, setCost] = useState("");
   const [noteError, setNoteError] = useState("");
+  const [costError, setCostError] = useState("");
 
   useEffect(() => subscribeConfirm(setState), []);
 
   useEffect(() => {
     setNote("");
+    setCost("");
     setNoteError("");
+    setCostError("");
   }, [state]);
 
   useEffect(() => {
@@ -31,7 +35,14 @@ export default function ConfirmDialog() {
       setNoteError("A note is required");
       return;
     }
-    settleConfirm(true, note.trim());
+    if (state.costPrompt && cost.trim()) {
+      const n = Number(cost);
+      if (!Number.isFinite(n) || n < 0) {
+        setCostError("Enter a cost of 0 or more");
+        return;
+      }
+    }
+    settleConfirm(true, { note: note.trim(), cost: cost.trim() });
   }
 
   return (
@@ -67,6 +78,27 @@ export default function ConfirmDialog() {
               }}
             />
             {noteError ? <p className="text-red-400 text-xs mt-1">{noteError}</p> : null}
+          </div>
+        )}
+        {state.costPrompt && (
+          <div className="mt-4">
+            <label className="input-label" htmlFor="confirm-cost">
+              {state.costLabel || "Cost"} (optional)
+            </label>
+            <input
+              id="confirm-cost"
+              type="number"
+              min="0"
+              step="0.01"
+              className="input-field"
+              value={cost}
+              placeholder="0.00"
+              onChange={(e) => {
+                setCost(e.target.value);
+                if (costError) setCostError("");
+              }}
+            />
+            {costError ? <p className="text-red-400 text-xs mt-1">{costError}</p> : null}
           </div>
         )}
         <div className="flex justify-end gap-2 mt-6">
