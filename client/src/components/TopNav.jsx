@@ -14,16 +14,68 @@ import { ORG_SECTIONS } from "../lib/orgSections";
 import ThemeToggle from "./ThemeToggle";
 import { assetImageSrc } from "../lib/assetImage";
 
+function dropdownButtonClass(active) {
+  return `px-3 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-1 ${
+    active ? "text-accent bg-cyan-500/15" : "text-muted hover:opacity-80 hover:bg-white/5"
+  }`;
+}
+
+function NavDropdown({ label, active, open, setOpen, onOpen, menuRef, items }) {
+  return (
+    <div className="relative z-[90]" ref={menuRef}>
+      <button
+        type="button"
+        className={dropdownButtonClass(active)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() =>
+          setOpen((v) => {
+            const next = !v;
+            if (next && typeof onOpen === "function") onOpen();
+            return next;
+          })
+        }
+      >
+        {label}
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="nav-dropdown absolute left-0 top-full mt-2 min-w-[13rem] max-h-[min(24rem,calc(100dvh-5rem))] overflow-y-auto rounded-xl py-1">
+          {items.map((item) => (
+            <NavLink
+              key={item.key || item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                `block px-4 py-2 text-sm ${
+                  isActive ? "text-accent bg-cyan-500/15" : "text-muted hover:bg-white/5"
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TopNav({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [orgOpen, setOrgOpen] = useState(false);
+  const [assetOpen, setAssetOpen] = useState(false);
   const orgMenuRef = useRef(null);
+  const assetMenuRef = useRef(null);
   const user = getSavedUser();
   const acting = getActingOrganization();
   const siteAdmin = isSiteAdmin(user);
   const actingAsOrg = isActingAsOrganization(user);
+  const orgWorkspace = Boolean(user) && !(siteAdmin && !actingAsOrg);
   const canSetup = hasPermission(user, "setup.manage");
   const orgSections = actingAsOrg || !siteAdmin
     ? ORG_SECTIONS.filter((item) => {
@@ -31,7 +83,21 @@ export default function TopNav({ onLogout }) {
         return canSetup;
       })
     : [];
+  const assetSections = orgWorkspace
+    ? [
+        { key: "my-assets", to: "/my-assets", label: "My Assets", show: hasPermission(user, "assets.accept") },
+        { key: "requests", to: "/requests", label: "Requests", show: hasPermission(user, "requests.create") },
+        { key: "assets", to: "/assets", label: "Assets", end: true, show: hasPermission(user, "assets.read") },
+        { key: "scan", to: "/scan", label: "Scan", show: hasPermission(user, "assets.read") },
+        { key: "add-asset", to: "/assets/new", label: "New Asset", show: hasPermission(user, "assets.manage") },
+      ].filter((item) => item.show)
+    : [];
   const orgActive = location.pathname.startsWith("/organization");
+  const assetActive =
+    location.pathname.startsWith("/my-assets") ||
+    location.pathname.startsWith("/requests") ||
+    location.pathname.startsWith("/assets") ||
+    location.pathname.startsWith("/scan");
   const displayOrgName = acting?.Name || user?.OrganizationName;
   const displayOrgCode = acting?.Code || user?.OrganizationCode;
   const displayOrgLogo = acting?.LogoUrl || user?.OrganizationLogoUrl;
@@ -41,6 +107,7 @@ export default function TopNav({ onLogout }) {
     { to: "/about", label: "About Us", show: true },
     { to: "/contact", label: "Contact Us", show: true },
   ];
+  const leadingPaths = new Set(["/", "/dashboard"]);
   const trailingPaths = new Set(["/users", "/about", "/contact"]);
   const links = !user
     ? [homeLink, ...infoLinks]
@@ -49,14 +116,8 @@ export default function TopNav({ onLogout }) {
     : [
         homeLink,
         { to: "/dashboard", label: "Dashboard", end: true, show: true },
-        { to: "/my-assets", label: "My Assets", show: hasPermission(user, "assets.accept") },
-        { to: "/assets", label: "Assets", end: true, show: hasPermission(user, "assets.read") },
-        { to: "/scan", label: "Scan", show: hasPermission(user, "assets.read") },
-        { to: "/assets/new", label: "Add Asset", show: hasPermission(user, "assets.manage") },
         { to: "/warranties", label: "Warranties", show: hasPermission(user, "assets.read") },
         { to: "/maintenance", label: "Maintenance", show: hasPermission(user, "maintenance.request") },
-        { to: "/requests", label: "Requests", show: hasPermission(user, "requests.create") },
-        { to: "/organization/audit", label: "Audit", show: hasPermission(user, "setup.manage") },
         { to: "/users", label: "Users", show: hasPermission(user, "users.read") },
         { to: "/admin/organizations", label: "Organizations", show: siteAdmin && hasPermission(user, "site.manage") },
         ...infoLinks,
@@ -67,6 +128,9 @@ export default function TopNav({ onLogout }) {
       if (orgMenuRef.current && !orgMenuRef.current.contains(event.target)) {
         setOrgOpen(false);
       }
+      if (assetMenuRef.current && !assetMenuRef.current.contains(event.target)) {
+        setAssetOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -74,6 +138,7 @@ export default function TopNav({ onLogout }) {
 
   useEffect(() => {
     setOrgOpen(false);
+    setAssetOpen(false);
     setOpen(false);
   }, [location.pathname]);
 
@@ -84,6 +149,7 @@ export default function TopNav({ onLogout }) {
     }
     setOpen(false);
     setOrgOpen(false);
+    setAssetOpen(false);
     navigate("/");
   }
 
@@ -93,12 +159,6 @@ export default function TopNav({ onLogout }) {
         ? "text-accent bg-cyan-500/15"
         : "text-muted hover:opacity-80 hover:bg-white/5"
     }`;
-
-  const orgButtonClass = `px-3 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-1 ${
-    orgActive
-      ? "text-accent bg-cyan-500/15"
-      : "text-muted hover:opacity-80 hover:bg-white/5"
-  }`;
 
   function handleExitOrganization() {
     setActingOrganization(null);
@@ -171,44 +231,40 @@ export default function TopNav({ onLogout }) {
 
         <nav className="hidden md:flex items-center gap-1">
           {links
-            .filter((link) => !trailingPaths.has(link.to))
+            .filter((link) => leadingPaths.has(link.to))
+            .map((link) => (
+              <NavLink key={link.to} to={link.to} end={link.end} className={linkClass}>
+                {link.label}
+              </NavLink>
+            ))}
+          {assetSections.length > 0 && (
+            <NavDropdown
+              label="Asset"
+              active={assetActive}
+              open={assetOpen}
+              setOpen={setAssetOpen}
+              onOpen={() => setOrgOpen(false)}
+              menuRef={assetMenuRef}
+              items={assetSections}
+            />
+          )}
+          {links
+            .filter((link) => !leadingPaths.has(link.to) && !trailingPaths.has(link.to))
             .map((link) => (
               <NavLink key={link.to} to={link.to} end={link.end} className={linkClass}>
                 {link.label}
               </NavLink>
             ))}
           {orgSections.length > 0 && (
-            <div className="relative z-[90]" ref={orgMenuRef}>
-              <button
-                type="button"
-                className={orgButtonClass}
-                aria-expanded={orgOpen}
-                aria-haspopup="true"
-                onClick={() => setOrgOpen((v) => !v)}
-              >
-                Organization
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {orgOpen && (
-                <div className="nav-dropdown absolute left-0 top-full mt-2 min-w-[13rem] max-h-[min(24rem,calc(100dvh-5rem))] overflow-y-auto rounded-xl py-1">
-                  {orgSections.map((item) => (
-                    <NavLink
-                      key={item.key}
-                      to={item.to}
-                      className={({ isActive }) =>
-                        `block px-4 py-2 text-sm ${
-                          isActive ? "text-accent bg-cyan-500/15" : "text-muted hover:bg-white/5"
-                        }`
-                      }
-                    >
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-            </div>
+            <NavDropdown
+              label="Admin"
+              active={orgActive}
+              open={orgOpen}
+              setOpen={setOrgOpen}
+              onOpen={() => setAssetOpen(false)}
+              menuRef={orgMenuRef}
+              items={orgSections}
+            />
           )}
           {links
             .filter((link) => trailingPaths.has(link.to))
@@ -285,7 +341,38 @@ export default function TopNav({ onLogout }) {
       {open && (
         <div className="md:hidden border-t border-white/10 px-4 py-3 space-y-1">
           {links
-            .filter((link) => !trailingPaths.has(link.to))
+            .filter((link) => leadingPaths.has(link.to))
+            .map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) => `block ${linkClass({ isActive })}`}
+                onClick={() => setOpen(false)}
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          {assetSections.length > 0 && (
+            <div className="pt-1">
+              <p className={`px-3 py-2 text-xs uppercase tracking-widest ${assetActive ? "text-accent" : "text-muted"}`}>
+                Asset
+              </p>
+              {assetSections.map((item) => (
+                <NavLink
+                  key={item.key}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) => `block ${linkClass({ isActive })}`}
+                  onClick={() => setOpen(false)}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+          {links
+            .filter((link) => !leadingPaths.has(link.to) && !trailingPaths.has(link.to))
             .map((link) => (
               <NavLink
                 key={link.to}
@@ -300,7 +387,7 @@ export default function TopNav({ onLogout }) {
           {orgSections.length > 0 && (
             <div className="pt-1">
               <p className={`px-3 py-2 text-xs uppercase tracking-widest ${orgActive ? "text-accent" : "text-muted"}`}>
-                Organization
+                Admin
               </p>
               {orgSections.map((item) => (
                 <NavLink

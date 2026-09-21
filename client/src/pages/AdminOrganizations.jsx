@@ -291,11 +291,12 @@ export default function AdminOrganizations() {
   const columnDefs = useMemo(
     () => [
       { field: "Name", headerName: "Name", minWidth: 140, flex: 1.1, filter: "agTextColumnFilter" },
-      { field: "Code", headerName: "Code", minWidth: 80, flex: 0.4, filter: "agTextColumnFilter" },
+      { field: "Code", headerName: "Code", minWidth: 100, maxWidth: 120, flex: 0.4, filter: "agTextColumnFilter" },
       {
         field: "Status",
         headerName: "Status",
-        minWidth: 90,
+        minWidth: 80,
+        maxWidth: 100,
         flex: 0.4,
         valueFormatter: (params) => (params.value === "inactive" ? "Inactive" : "Active"),
       },
@@ -303,20 +304,23 @@ export default function AdminOrganizations() {
         field: "AccessEndsAt",
         headerName: "Access ends",
         minWidth: 110,
+        maxWidth: 140,
         flex: 0.5,
         valueFormatter: (params) => (params.value ? toDateInput(params.value) : "No expiry"),
       },
       {
         field: "DaysRemaining",
         headerName: "Days left",
-        minWidth: 80,
+        minWidth: 70,
+        maxWidth: 100,
         flex: 0.4,
         valueFormatter: (params) => (params.value == null ? "—" : String(params.value)),
       },
       {
         colId: "users",
         headerName: "Users",
-        minWidth: 80,
+        minWidth: 70,
+        maxWidth: 100,
         flex: 0.4,
         valueGetter: (params) => {
           const max = params.data?.MaxUsers;
@@ -327,7 +331,8 @@ export default function AdminOrganizations() {
       {
         colId: "assets",
         headerName: "Assets",
-        minWidth: 80,
+        minWidth: 70,
+        maxWidth: 100,
         flex: 0.4,
         valueGetter: (params) => {
           const max = params.data?.MaxAssets;
@@ -341,7 +346,7 @@ export default function AdminOrganizations() {
         sortable: false,
         filter: false,
         floatingFilter: false,
-        minWidth: 280,
+        minWidth: 360,
         flex: 2.2,
         autoHeight: true,
         cellStyle: {
@@ -394,6 +399,7 @@ export default function AdminOrganizations() {
             <div>
               <label className="input-label">Name</label>
               <input className="input-field" value={form.name} onChange={update("name")} />
+              <p className="text-[11px] text-muted mt-1">Only site admin can rename an organization.</p>
             </div>
             <div>
               <label className="input-label">Legal name</label>

@@ -89,7 +89,7 @@ export default function AddAsset() {
   return (
     <div className="animate-enter space-y-6 w-full">
       <div>
-        <h2 className="text-2xl font-bold">{isEdit ? "Edit Asset" : "Add Asset"}</h2>
+        <h2 className="text-2xl font-bold">{isEdit ? "Edit Asset" : "New Asset"}</h2>
         <p className="text-muted text-sm mt-1">
           {isEdit ? "Update register details." : "Register a new asset. A tag is generated automatically."}
         </p>

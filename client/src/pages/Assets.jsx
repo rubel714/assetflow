@@ -431,7 +431,7 @@ export default function Assets() {
         <div>
           <p className="text-xs uppercase tracking-widest text-muted">Register</p>
           <h2 className="text-2xl font-bold">
-            {view === "add" ? "Add Asset" : view === "edit" ? "Edit Asset" : "Assets"}
+            {view === "add" ? "New Asset" : view === "edit" ? "Edit Asset" : "Assets"}
           </h2>
           <p className="text-muted text-sm mt-1">
             {isForm
