@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../lib/api";
-import { getSavedUser, roleLabel } from "../lib/globalfunction";
+import { getSavedUser } from "../lib/globalfunction";
 
 export default function Dashboard() {
   const user = getSavedUser();
@@ -57,29 +57,6 @@ export default function Dashboard() {
         <p className="text-muted text-sm mt-1">
           Welcome back, {user?.FullName || user?.Email || "user"}.
         </p>
-      </div>
-
-      <div className="glass rounded-2xl p-6 space-y-3">
-        <p className="text-xs uppercase tracking-widest text-muted">Signed in as</p>
-        <p className="text-lg font-semibold">{user?.FullName}</p>
-        <div className="grid sm:grid-cols-3 gap-4 pt-2 text-sm">
-          <div>
-            <p className="text-muted">Email</p>
-            <p className="font-medium">{user?.Email || "—"}</p>
-          </div>
-          <div>
-            <p className="text-muted">Role</p>
-            <p className="font-medium">{roleLabel(user?.Role)}</p>
-          </div>
-          <div>
-            <p className="text-muted">Organization</p>
-            <p className="font-medium">
-              {user?.OrganizationCode
-                ? `${user.OrganizationCode} · ${user.OrganizationName}`
-                : user?.OrganizationName || "—"}
-            </p>
-          </div>
-        </div>
       </div>
 
       {loading && <p className="text-muted">Loading dashboard…</p>}
