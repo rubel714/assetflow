@@ -51,7 +51,7 @@ export default function Users() {
   const current = getSavedUser();
   const canManage = hasPermission(current, "users.manage");
   const [rows, setRows] = useState([]);
-  const [lookups, setLookups] = useState({ designations: [] });
+  const [lookups, setLookups] = useState({ designations: [], roles: [] });
   const [view, setView] = useState("list");
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -74,7 +74,10 @@ export default function Users() {
 
   function loadLookups() {
     return api.get("/lookups").then((res) => {
-      setLookups({ designations: res.data.designations || [] });
+      setLookups({
+        designations: res.data.designations || [],
+        roles: res.data.roles || [],
+      });
     });
   }
 
@@ -276,8 +279,8 @@ export default function Users() {
         minWidth: 160,
         flex: 1,
         filter: "agTextColumnFilter",
-        valueFormatter: (params) => roleLabel(params.value),
-        filterValueGetter: (params) => roleLabel(params.data?.Role),
+        valueFormatter: (params) => roleLabel(params.value, params.data?.RoleName),
+        filterValueGetter: (params) => roleLabel(params.data?.Role, params.data?.RoleName),
       },
       {
         field: "Status",

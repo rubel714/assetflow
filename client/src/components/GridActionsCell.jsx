@@ -2,12 +2,14 @@ import React from "react";
 
 export default function GridActionsCell(params) {
   const row = params?.data;
+  if (!row) return null;
   const onEdit = params?.context?.onEdit;
   const onDelete = params?.context?.onDelete;
-  if (!row) return null;
+  const allowEdit = params?.context?.canEdit ? params.context.canEdit(row) : true;
+  const allowDelete = params?.context?.canDelete ? params.context.canDelete(row) : true;
   return (
     <div className="flex justify-end items-center gap-2 h-full pr-2">
-      {onEdit && (
+      {onEdit && allowEdit && (
       <button
         type="button"
         className="p-2 rounded-lg hover:bg-white/10 text-accent"
@@ -29,7 +31,7 @@ export default function GridActionsCell(params) {
         </svg>
       </button>
       )}
-      {onDelete && (
+      {onDelete && allowDelete && (
       <button
         type="button"
         className="p-2 rounded-lg hover:bg-red-500/10 text-red-400"

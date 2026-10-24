@@ -27,7 +27,13 @@ CREATE TABLE IF NOT EXISTS organizations (
 
 CREATE TABLE IF NOT EXISTS roles (
   RoleKey VARCHAR(40) PRIMARY KEY,
-  Name VARCHAR(80) NOT NULL
+  Name VARCHAR(80) NOT NULL,
+  OrganizationId INT NULL,
+  IsSystem TINYINT(1) NOT NULL DEFAULT 0,
+  CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_roles_org_name (OrganizationId, Name),
+  CONSTRAINT fk_roles_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId)
 );
 
 CREATE TABLE IF NOT EXISTS permissions (
@@ -158,6 +164,7 @@ CREATE TABLE IF NOT EXISTS maintenance_schedules (
   MaintenanceScheduleId INT AUTO_INCREMENT PRIMARY KEY,
   OrganizationId INT NOT NULL,
   Name VARCHAR(120) NOT NULL,
+  IntervalDays INT NULL,
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_maint_org_name (OrganizationId, Name),
@@ -305,6 +312,39 @@ CREATE TABLE IF NOT EXISTS asset_documents (
   KEY idx_docs_asset (OrganizationId, AssetId),
   CONSTRAINT fk_docs_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId),
   CONSTRAINT fk_docs_asset FOREIGN KEY (AssetId) REFERENCES assets (AssetId)
+);
+
+CREATE TABLE IF NOT EXISTS asset_warranties (
+  WarrantyId INT AUTO_INCREMENT PRIMARY KEY,
+  OrganizationId INT NOT NULL,
+  AssetId INT NOT NULL,
+  Vendor VARCHAR(150) NULL,
+  StartDate DATE NULL,
+  EndDate DATE NOT NULL,
+  Notes VARCHAR(500) NULL,
+  CreatedBy INT NULL,
+  CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_aw_asset (OrganizationId, AssetId, EndDate),
+  CONSTRAINT fk_aw_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId),
+  CONSTRAINT fk_aw_asset FOREIGN KEY (AssetId) REFERENCES assets (AssetId)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  NotificationId INT AUTO_INCREMENT PRIMARY KEY,
+  OrganizationId INT NOT NULL,
+  UserId INT NOT NULL,
+  Type VARCHAR(40) NOT NULL,
+  Title VARCHAR(180) NOT NULL,
+  Body VARCHAR(500) NULL,
+  Link VARCHAR(180) NULL,
+  EntityType VARCHAR(60) NULL,
+  EntityId INT NULL,
+  ReadAt DATETIME NULL,
+  CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_notice_user (OrganizationId, UserId, ReadAt, CreatedAt),
+  CONSTRAINT fk_notice_org FOREIGN KEY (OrganizationId) REFERENCES organizations (OrganizationId),
+  CONSTRAINT fk_notice_user FOREIGN KEY (UserId) REFERENCES users (UserId)
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (

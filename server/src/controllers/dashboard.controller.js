@@ -1,10 +1,13 @@
 const db = require("../config/db");
 const { isEmployee } = require("../middleware/auth");
 const { pastMonthKeys, upcomingMonthKeys, fillMonths, namedTotals } = require("../lib/chartSeries");
+const { WARRANTY_END_SQL } = require("../lib/warrantySql");
+const { ensureScheduledWorkOrders } = require("../services/schedule.service");
 
 const summary = async (req, res) => {
   try {
     const orgId = req.user.OrganizationId;
+    await ensureScheduledWorkOrders(orgId);
 
     if (isEmployee(req.user)) {
       const [assigned] = await db.query(
@@ -27,8 +30,8 @@ const summary = async (req, res) => {
          FROM assets a
          JOIN asset_assignments aa ON aa.AssignmentId = a.CurrentAssignmentId
          WHERE a.OrganizationId = ? AND aa.UserId = ? AND aa.Status = 'open'
-           AND a.LastWarrantyDate IS NOT NULL
-           AND a.LastWarrantyDate <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)`,
+           AND ${WARRANTY_END_SQL} <> '9999-12-31'
+           AND ${WARRANTY_END_SQL} <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)`,
         [orgId, req.user.UserId]
       );
       const [maintenance] = await db.query(
@@ -105,10 +108,10 @@ const summary = async (req, res) => {
     );
     const [warranties] = await db.query(
       `SELECT COUNT(*) AS c
-       FROM assets
-       WHERE OrganizationId = ?
-         AND LastWarrantyDate IS NOT NULL
-         AND LastWarrantyDate <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)`,
+       FROM assets a
+       WHERE a.OrganizationId = ?
+         AND ${WARRANTY_END_SQL} <> '9999-12-31'
+         AND ${WARRANTY_END_SQL} <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)`,
       [orgId]
     );
     const [maintenance] = await db.query(

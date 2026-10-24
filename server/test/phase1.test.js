@@ -156,6 +156,7 @@ test("employee cannot manage users, setup, assets, or assign", async () => {
   assert.equal((await api("POST", "/users", { token, body: { email: "x@example.com", password: "secret1", fullName: "X" } })).status, 403);
   assert.equal((await api("GET", "/departments", { token })).status, 403);
   assert.equal((await api("GET", "/designations", { token })).status, 403);
+  assert.equal((await api("GET", "/roles", { token })).status, 403);
   assert.equal((await api("POST", "/assets", { token, body: { name: "Forbidden" } })).status, 403);
   const list = await api("GET", "/assets", { token });
   assert.equal(list.status, 200);
@@ -166,6 +167,55 @@ test("employee cannot manage users, setup, assets, or assign", async () => {
   assert.equal((await api("GET", "/organization", { token })).status, 403);
   assert.equal((await api("GET", "/audit-logs", { token })).status, 403);
   assert.equal((await api("GET", "/assets/export", { token })).status, 403);
+});
+
+test("organization admin can create and assign a custom role", async () => {
+  const token = await login(DEMO.admin, "admin123");
+  const manager = await login(DEMO.manager, "manager123");
+  assert.equal((await api("GET", "/roles", { token: manager })).status, 403);
+
+  let created = await api("POST", "/roles", {
+    token,
+    body: { name: "Phase1 Auditor", permissions: ["assets.read", "dashboard.read", "site.manage"] },
+  });
+  if (created.status === 409) {
+    const list = await api("GET", "/roles", { token });
+    const existing = (list.json.roles || []).find((role) => role.Name === "Phase1 Auditor");
+    created = { status: 200, json: { role: existing } };
+  }
+  assert.ok(created.status === 201 || created.status === 200, created.json?.message);
+  const roleKey = created.json.role.RoleKey;
+  assert.equal(created.json.role.IsSystem, false);
+  assert.deepEqual(created.json.role.permissions, ["dashboard.read", "assets.read"]);
+
+  const lookups = await api("GET", "/lookups", { token });
+  assert.ok((lookups.json.roles || []).some((role) => role.RoleKey === roleKey));
+  assert.ok((lookups.json.roles || []).some((role) => role.RoleKey === "employee"));
+  assert.equal((lookups.json.roles || []).some((role) => role.RoleKey === "site_admin"), false);
+
+  const other = await login(OTHER_ADMIN_EMAIL, OTHER_PASSWORD);
+  const otherLookups = await api("GET", "/lookups", { token: other });
+  assert.equal((otherLookups.json.roles || []).some((role) => role.RoleKey === roleKey), false);
+
+  const email = "phase1.auditor@bashundhara.example";
+  const user = await api("POST", "/users", {
+    token,
+    body: {
+      email,
+      password: "auditor123",
+      confirmPassword: "auditor123",
+      fullName: "Phase1 Auditor",
+      role: roleKey,
+    },
+  });
+  assert.ok(user.status === 201 || user.status === 409, user.json?.message);
+
+  assert.equal((await api("DELETE", "/roles/organization_admin", { token })).status, 400);
+  assert.equal((await api("DELETE", `/roles/${roleKey}`, { token })).status, 409);
+  assert.equal(
+    (await api("POST", "/roles", { token, body: { name: "Empty Role", permissions: ["site.manage"] } })).status,
+    400
+  );
 });
 
 test("employee only sees assigned assets", async () => {
@@ -441,6 +491,11 @@ test("employee can create an asset request but cannot approve", async () => {
   });
   assert.equal(approved.status, 200, approved.json?.message);
   assert.equal(approved.json.request.Status, "approved");
+  assert.ok(approved.json.request.AssetId);
+  const draft = await api("GET", `/assets/${approved.json.request.AssetId}`, { token: admin });
+  assert.equal(draft.status, 200);
+  assert.equal(draft.json.asset.Status, "Available");
+  assert.equal(draft.json.asset.Name, "Need a laptop");
 
   const again = await api("PATCH", `/asset-requests/${requestId}`, {
     token: manager,
@@ -501,6 +556,16 @@ test("employee request list is own-only; assignment requires Available", async (
   const dash = await api("GET", "/dashboard", { token: admin });
   assert.equal(dash.status, 200);
   assert.ok(Number(dash.json.summary?.pendingRequests || 0) >= 1);
+
+  const { token: manager } = await ensureAssetManager(admin);
+  const assignedFromRequest = await api("PATCH", `/asset-requests/${assignmentReq.json.request.RequestId}`, {
+    token: manager,
+    body: { action: "approve" },
+  });
+  assert.equal(assignedFromRequest.status, 200, assignedFromRequest.json?.message);
+  const afterAssign = await api("GET", `/assets/${availableId}`, { token: admin });
+  assert.equal(afterAssign.json.asset.Status, "Assigned");
+  assert.equal(afterAssign.json.asset.CustodianId, employee.UserId);
 });
 
 test("site admin can manage organizations; tenant admin cannot", async () => {
@@ -592,4 +657,82 @@ test("inactive or expired organizations cannot log in", async () => {
   });
   const restored = await login(OTHER_ADMIN_EMAIL, OTHER_PASSWORD);
   assert.ok(restored);
+});
+
+test("in-app notifications, extra warranties, scheduled work orders, and reports", async () => {
+  const admin = await login(DEMO.admin, "admin123");
+  const employeeToken = await login(DEMO.employee, "employee123");
+  const users = await api("GET", "/users", { token: admin });
+  const employee = (users.json.users || []).find((u) => u.Email === DEMO.employee);
+
+  const pending = await api("POST", "/asset-requests", {
+    token: employeeToken,
+    body: { requestType: "new_asset", title: "Notification probe request" },
+  });
+  assert.equal(pending.status, 201, pending.json?.message);
+  const notices = await api("GET", "/notifications", { token: admin });
+  assert.equal(notices.status, 200, notices.json?.message);
+  assert.ok(
+    (notices.json.notifications || []).some(
+      (row) => row.Type === "request_pending" && row.EntityId === pending.json.request.RequestId
+    )
+  );
+
+  const far = new Date(Date.now() + 86400000 * 400).toISOString().slice(0, 10);
+  const soon = new Date(Date.now() + 86400000 * 5).toISOString().slice(0, 10);
+  const created = await api("POST", "/assets", {
+    token: admin,
+    body: { name: "Extra Warranty Probe", lastWarrantyDate: far },
+  });
+  assert.equal(created.status, 201, created.json?.message);
+  const assetId = created.json.asset.AssetId;
+  const extra = await api("POST", `/assets/${assetId}/warranties`, {
+    token: admin,
+    body: { vendor: "Onsite", endDate: soon, notes: "Battery" },
+  });
+  assert.equal(extra.status, 201, extra.json?.message);
+  const due = await api("GET", "/warranties?days=30", { token: admin });
+  assert.equal(due.status, 200);
+  const dueRow = (due.json.warranties || []).find((row) => row.AssetId === assetId);
+  assert.ok(dueRow);
+  assert.equal(String(dueRow.WarrantyEnd).slice(0, 10), soon);
+
+  const lookups = await api("GET", "/lookups", { token: admin });
+  const monthly = (lookups.json.maintenanceSchedules || []).find((row) => row.Name === "Monthly");
+  assert.ok(monthly?.MaintenanceScheduleId);
+  const scheduledAsset = await api("POST", "/assets", {
+    token: admin,
+    body: { name: "Scheduled Maintenance Probe", maintenanceScheduleId: monthly.MaintenanceScheduleId },
+  });
+  assert.equal(scheduledAsset.status, 201, scheduledAsset.json?.message);
+  const work = await api("GET", "/maintenance-requests", { token: admin });
+  assert.equal(work.status, 200, work.json?.message);
+  assert.ok(
+    (work.json.requests || []).some(
+      (row) =>
+        row.AssetId === scheduledAsset.json.asset.AssetId &&
+        row.Status === "open" &&
+        String(row.Title).includes("Monthly")
+    )
+  );
+
+  const csv = await api("GET", "/reports/warranties", { token: admin });
+  assert.equal(csv.status, 200);
+  const csvText = csv.json?.raw || "";
+  assert.match(csvText, /AssetTag/);
+  const employeeCsv = await api("GET", "/reports/assignments", { token: employeeToken });
+  assert.equal(employeeCsv.status, 403);
+
+  const handover = await api("POST", "/assets", { token: admin, body: { name: "Notify Handover Probe" } });
+  const assigned = await api("POST", `/assets/${handover.json.asset.AssetId}/assign`, {
+    token: admin,
+    body: { userId: employee.UserId },
+  });
+  assert.equal(assigned.status, 200, assigned.json?.message);
+  const employeeNotices = await api("GET", "/notifications", { token: employeeToken });
+  assert.ok(
+    (employeeNotices.json.notifications || []).some(
+      (row) => row.Type === "handover_pending" && String(row.Title).includes(handover.json.asset.AssetTag)
+    )
+  );
 });

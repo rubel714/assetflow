@@ -33,11 +33,13 @@ export default function Warranties() {
       },
       { field: "Name", headerName: "Name", minWidth: 180, flex: 2 },
       {
-        field: "LastWarrantyDate",
+        field: "WarrantyEnd",
         headerName: "Warranty ends",
         minWidth: 140,
         valueGetter: (params) =>
-          params.data?.LastWarrantyDate ? String(params.data.LastWarrantyDate).slice(0, 10) : "—",
+          params.data?.WarrantyEnd || params.data?.LastWarrantyDate
+            ? String(params.data.WarrantyEnd || params.data.LastWarrantyDate).slice(0, 10)
+            : "—",
       },
       {
         field: "WarrantyState",

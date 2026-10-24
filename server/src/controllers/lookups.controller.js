@@ -12,6 +12,14 @@ const list = async (req, res) => {
       "SELECT DesignationId, Name FROM designations WHERE OrganizationId = ? ORDER BY Name",
       [orgId]
     );
+    const [roles] = await db.query(
+      `SELECT RoleKey, Name
+       FROM roles
+       WHERE RoleKey <> 'site_admin'
+         AND (OrganizationId IS NULL OR OrganizationId = ?)
+       ORDER BY IsSystem DESC, FIELD(RoleKey, 'organization_admin', 'asset_manager', 'employee'), Name`,
+      [orgId]
+    );
     const [locations] = await db.query(
       "SELECT LocationId, Name FROM locations WHERE OrganizationId = ? ORDER BY Name",
       [orgId]
@@ -37,29 +45,31 @@ const list = async (req, res) => {
       [orgId]
     );
     const [maintenanceSchedules] = await db.query(
-      `SELECT MaintenanceScheduleId, Name
+      `SELECT MaintenanceScheduleId, Name, IntervalDays
        FROM maintenance_schedules
        WHERE OrganizationId = ?
        ORDER BY FIELD(Name, 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual'), Name`,
       [orgId]
     );
     const userParams = [orgId];
-    let userWhere = "WHERE OrganizationId = ? AND Status = 'active'";
+    let userWhere = "WHERE u.OrganizationId = ? AND u.Status = 'active'";
     if (req.user.RoleKey === "employee") {
-      userWhere += " AND UserId = ?";
+      userWhere += " AND u.UserId = ?";
       userParams.push(req.user.UserId);
     }
     const [users] = await db.query(
-      `SELECT UserId, FullName, Email, RoleKey, ImagePath
-       FROM users
+      `SELECT u.UserId, u.FullName, u.Email, u.RoleKey, r.Name AS RoleName, u.ImagePath
+       FROM users u
+       LEFT JOIN roles r ON r.RoleKey = u.RoleKey
        ${userWhere}
-       ORDER BY FullName`,
+       ORDER BY u.FullName`,
       userParams
     );
     res.json({
       status: true,
       departments: departments.map((row) => ({ ...row, id: row.DepartmentId })),
       designations: designations.map((row) => ({ ...row, id: row.DesignationId })),
+      roles: roles.map((row) => ({ RoleKey: row.RoleKey, Name: row.Name })),
       locations: locations.map((row) => ({ ...row, id: row.LocationId })),
       projects: projects.map((row) => ({ ...row, id: row.ProjectId })),
       categories: categories.map((row) => ({ ...row, id: row.CategoryId })),
@@ -75,6 +85,7 @@ const list = async (req, res) => {
         FullName: u.FullName,
         Email: u.Email,
         Role: u.RoleKey,
+        RoleName: u.RoleName || null,
         ImageUrl: publicUserImageUrl(u.ImagePath),
       })),
     });

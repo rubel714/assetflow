@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const db = require("../config/db");
 const { writeAudit } = require("../services/audit.service");
 const { ROLES } = require("../lib/permissions");
+const { assertAssignableRole, roleNameFor } = require("../lib/roles");
 const { emptyToNull, resolveDesignation } = require("../lib/designations");
 const { normalizeEmail, isValidEmail } = require("../lib/identity");
 const { assertWithinOrgLimit } = require("../lib/orgAccess");
@@ -11,8 +12,7 @@ const {
   deleteUserImageFile,
 } = require("../services/userImage.service");
 
-const ALLOWED_ROLES = Object.values(ROLES).filter((role) => role !== ROLES.SITE_ADMIN);
-const USER_PROFILE_COLUMNS = `u.UserId, u.FullName, u.RoleKey, u.Status, u.ImagePath,
+const USER_PROFILE_COLUMNS = `u.UserId, u.FullName, u.RoleKey, r.Name AS RoleName, u.Status, u.ImagePath,
        u.DesignationId, d.Name AS Designation, u.Phone, u.Email, u.Address, u.CreatedAt`;
 
 function mapUser(row) {
@@ -20,6 +20,7 @@ function mapUser(row) {
     UserId: row.UserId,
     FullName: row.FullName,
     Role: row.RoleKey,
+    RoleName: row.RoleName || null,
     Status: row.Status,
     ImagePath: row.ImagePath,
     DesignationId: row.DesignationId || null,
@@ -91,6 +92,7 @@ const list = async (req, res) => {
       `SELECT ${USER_PROFILE_COLUMNS}
        FROM users u
        LEFT JOIN designations d ON d.DesignationId = u.DesignationId
+       LEFT JOIN roles r ON r.RoleKey = u.RoleKey
        WHERE u.OrganizationId = ?
        ORDER BY u.FullName ASC`,
       [req.user.OrganizationId]
@@ -115,7 +117,7 @@ const create = async (req, res) => {
       return res.status(400).json({ status: false, message: passwordChange.error });
     }
     const roleKey = role || ROLES.EMPLOYEE;
-    if (!ALLOWED_ROLES.includes(roleKey)) {
+    if (!(await assertAssignableRole(req.user.OrganizationId, roleKey))) {
       discardUploadedFile(req);
       return res.status(400).json({ status: false, message: "Invalid role" });
     }
@@ -173,6 +175,7 @@ const create = async (req, res) => {
         UserId: result.insertId,
         FullName: fullName.trim(),
         RoleKey: roleKey,
+        RoleName: await roleNameFor(roleKey),
         Status: "active",
         ImagePath: imagePath,
         ...profile,
@@ -195,6 +198,7 @@ const update = async (req, res) => {
       `SELECT ${USER_PROFILE_COLUMNS}
        FROM users u
        LEFT JOIN designations d ON d.DesignationId = u.DesignationId
+       LEFT JOIN roles r ON r.RoleKey = u.RoleKey
        WHERE u.UserId = ? AND u.OrganizationId = ? LIMIT 1`,
       [userId, req.user.OrganizationId]
     );
@@ -213,7 +217,7 @@ const update = async (req, res) => {
     const fullName = req.body.fullName?.trim() || current.FullName;
     const roleKey = req.body.role || current.RoleKey;
     const status = req.body.status || current.Status;
-    if (!ALLOWED_ROLES.includes(roleKey)) {
+    if (!(await assertAssignableRole(req.user.OrganizationId, roleKey))) {
       discardUploadedFile(req);
       return res.status(400).json({ status: false, message: "Invalid role" });
     }
@@ -288,6 +292,7 @@ const update = async (req, res) => {
         UserId: userId,
         FullName: fullName,
         RoleKey: roleKey,
+        RoleName: await roleNameFor(roleKey),
         Status: status,
         ImagePath: imagePath,
         ...profile,

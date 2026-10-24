@@ -205,7 +205,7 @@ export default function AssetForm({
                 <option value="">Select</option>
                 {(lookups.maintenanceSchedules || []).map((c) => (
                   <option key={c.MaintenanceScheduleId} value={c.MaintenanceScheduleId}>
-                    {c.Name}
+                    {c.Name}{c.IntervalDays ? ` (${c.IntervalDays} days)` : ""}
                   </option>
                 ))}
               </select>

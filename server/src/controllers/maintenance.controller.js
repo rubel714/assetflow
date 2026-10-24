@@ -2,6 +2,9 @@ const db = require("../config/db");
 const { writeAudit, writeLifecycle } = require("../services/audit.service");
 const { getAsset, employeeCanViewAsset } = require("../services/asset.service");
 const { isEmployee } = require("../middleware/auth");
+const { notify, notifyPermission } = require("../services/notification.service");
+const { PERMISSIONS } = require("../lib/permissions");
+const { ensureScheduledWorkOrders } = require("../services/schedule.service");
 
 const OPEN_STATUSES = new Set(["open", "in_progress"]);
 
@@ -35,6 +38,7 @@ async function loadRequest(organizationId, requestId, conn) {
 
 const list = async (req, res) => {
   try {
+    await ensureScheduledWorkOrders(req.user.OrganizationId);
     const params = [req.user.OrganizationId];
     let extra = "";
     if (isEmployee(req.user)) {
@@ -102,6 +106,20 @@ const create = async (req, res) => {
       entityId: result.insertId,
       after: { assetId, title },
     });
+    await notifyPermission(
+      db,
+      req.user.OrganizationId,
+      PERMISSIONS.MAINTENANCE_MANAGE,
+      {
+        type: "maintenance_open",
+        title: `Maintenance: ${asset.AssetTag}`,
+        body: title,
+        link: "/maintenance",
+        entityType: "maintenance_request",
+        entityId: result.insertId,
+      },
+      req.user.UserId
+    );
     res.status(201).json({
       status: true,
       request: await loadRequest(req.user.OrganizationId, result.insertId),
@@ -244,6 +262,18 @@ const update = async (req, res) => {
         entityId: requestId,
         after: { action, workNotes },
       });
+      if (action === "complete" && row.RequestedBy && Number(row.RequestedBy) !== Number(req.user.UserId)) {
+        await notify(conn, {
+          organizationId: req.user.OrganizationId,
+          userId: row.RequestedBy,
+          type: "maintenance_open",
+          title: `Work completed: ${row.AssetTag}`,
+          body: row.Title,
+          link: "/maintenance",
+          entityType: "maintenance_request",
+          entityId: requestId,
+        });
+      }
       await conn.commit();
     } catch (err) {
       await conn.rollback();

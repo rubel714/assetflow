@@ -153,7 +153,7 @@ export default function AssetRequests() {
     const prompts = {
       approve: {
         title: "Approve this request?",
-        message: `${label} will be marked approved. It will not create an asset or assign custody.`,
+        message: `${label} will be approved. Assignment requests assign the asset; new-asset requests create a draft Available item.`,
         confirmLabel: "Approve",
         danger: false,
       },
@@ -313,7 +313,7 @@ export default function AssetRequests() {
           <h2 className="text-2xl font-bold">{showForm ? "New Request" : "Requests"}</h2>
           <p className="text-muted text-sm mt-1">
             {showForm
-              ? "Ask for a new asset or for an available item. Approval does not purchase or assign."
+              ? "Ask for a new asset or for an available item. Approval assigns custody or creates a draft asset."
               : "Submit requests. Managers approve or reject pending items."}
           </p>
         </div>

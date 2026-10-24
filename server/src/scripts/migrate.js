@@ -54,6 +54,31 @@ async function dropColumnIfExists(conn, table, column) {
   }
 }
 
+async function ensureCustomRoles(conn) {
+  await addColumnIfMissing(conn, "roles", "OrganizationId", "INT NULL");
+  await addColumnIfMissing(conn, "roles", "IsSystem", "TINYINT(1) NOT NULL DEFAULT 0");
+  await addColumnIfMissing(conn, "roles", "CreatedAt", "DATETIME NULL DEFAULT CURRENT_TIMESTAMP");
+  await addColumnIfMissing(conn, "roles", "UpdatedAt", "DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+  await addFkIfMissing(conn, "fk_roles_org", "roles", "OrganizationId", "organizations", "OrganizationId");
+  if (!(await indexExists(conn, "roles", "uq_roles_org_name"))) {
+    await conn.query("ALTER TABLE `roles` ADD UNIQUE KEY uq_roles_org_name (OrganizationId, Name)");
+  }
+  const names = {
+    site_admin: "Site Admin",
+    organization_admin: "Organization Admin",
+    asset_manager: "Asset Manager",
+    employee: "Employee",
+  };
+  for (const [key, name] of Object.entries(names)) {
+    await conn.query(
+      `INSERT INTO roles (RoleKey, Name, IsSystem)
+       VALUES (?, ?, 1)
+       ON DUPLICATE KEY UPDATE Name = VALUES(Name), IsSystem = 1`,
+      [key, name]
+    );
+  }
+}
+
 async function ensureUserDesignationLink(conn) {
   await addColumnIfMissing(conn, "users", "DesignationId", "INT NULL");
   if (await columnExists(conn, "users", "Designation")) {
@@ -262,14 +287,22 @@ async function migrate() {
   );
   await addColumnIfMissing(root, "asset_assignments", "AcceptedAt", "DATETIME NULL");
   await addColumnIfMissing(root, "maintenance_requests", "Cost", "DECIMAL(12,2) NULL");
+  await addColumnIfMissing(root, "maintenance_schedules", "IntervalDays", "INT NULL");
+  await root.query(`
+    UPDATE maintenance_schedules
+    SET IntervalDays = CASE Name
+      WHEN 'Monthly' THEN 30
+      WHEN 'Quarterly' THEN 90
+      WHEN 'Semi-Annual' THEN 180
+      WHEN 'Annual' THEN 365
+      ELSE IntervalDays
+    END
+    WHERE IntervalDays IS NULL
+  `);
 
-  const { ROLES, PERMISSIONS, ROLE_PERMISSIONS } = require("../lib/permissions");
-  for (const key of Object.values(ROLES)) {
-    await root.query("INSERT IGNORE INTO roles (RoleKey, Name) VALUES (?, ?)", [
-      key,
-      key,
-    ]);
-  }
+  await ensureCustomRoles(root);
+
+  const { PERMISSIONS, ROLE_PERMISSIONS } = require("../lib/permissions");
   for (const key of Object.values(PERMISSIONS)) {
     await root.query(
       "INSERT IGNORE INTO permissions (PermissionKey, Name) VALUES (?, ?)",

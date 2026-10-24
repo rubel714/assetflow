@@ -31,7 +31,8 @@ const PERMISSION_NAMES = {
 async function seedLookups() {
   for (const [key, name] of Object.entries(ROLE_NAMES)) {
     await db.query(
-      "INSERT IGNORE INTO roles (RoleKey, Name) VALUES (?, ?)",
+      `INSERT INTO roles (RoleKey, Name, IsSystem) VALUES (?, ?, 1)
+       ON DUPLICATE KEY UPDATE Name = VALUES(Name), IsSystem = 1`,
       [key, name]
     );
   }
@@ -417,6 +418,18 @@ async function seed() {
     "MaintenanceScheduleId",
     orgId,
     ["Monthly", "Quarterly", "Semi-Annual", "Annual"]
+  );
+  await db.query(
+    `UPDATE maintenance_schedules
+     SET IntervalDays = CASE Name
+       WHEN 'Monthly' THEN 30
+       WHEN 'Quarterly' THEN 90
+       WHEN 'Semi-Annual' THEN 180
+       WHEN 'Annual' THEN 365
+       ELSE IntervalDays
+     END
+     WHERE OrganizationId = ?`,
+    [orgId]
   );
 
   const laptopId = await ensureAsset(orgId, "AF-0001", {

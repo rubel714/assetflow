@@ -14,11 +14,13 @@ import AssetDetail from "./pages/AssetDetail";
 import MyAssets from "./pages/MyAssets";
 import ScanAsset from "./pages/ScanAsset";
 import Warranties from "./pages/Warranties";
+import Reports from "./pages/Reports";
 import Maintenance from "./pages/Maintenance";
 import AssetRequests from "./pages/AssetRequests";
 import Users from "./pages/Users";
 import Departments from "./pages/Departments";
 import Designations from "./pages/Designations";
+import Roles from "./pages/Roles";
 import Locations from "./pages/Locations";
 import Projects from "./pages/Projects";
 import Categories from "./pages/Categories";
@@ -154,6 +156,14 @@ export default function App() {
             }
           />
           <Route
+            path="/reports"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="reports.export">
+                <Reports />
+              </Protected>
+            }
+          />
+          <Route
             path="/maintenance"
             element={
               <Protected user={user} onLogout={handleLogout} permission="maintenance.request">
@@ -231,6 +241,14 @@ export default function App() {
             element={
               <Protected user={user} onLogout={handleLogout} permission="setup.manage">
                 <Designations />
+              </Protected>
+            }
+          />
+          <Route
+            path="/organization/roles"
+            element={
+              <Protected user={user} onLogout={handleLogout} permission="users.manage">
+                <Roles />
               </Protected>
             }
           />

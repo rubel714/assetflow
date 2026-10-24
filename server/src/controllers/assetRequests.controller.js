@@ -1,8 +1,10 @@
 const db = require("../config/db");
 const { writeAudit, writeLifecycle } = require("../services/audit.service");
-const { getAsset } = require("../services/asset.service");
+const { getAsset, nextAssetTag } = require("../services/asset.service");
 const { isEmployee } = require("../middleware/auth");
 const { PERMISSIONS } = require("../lib/permissions");
+const { assignAvailableAsset } = require("../services/custody.service");
+const { notify, notifyPermission } = require("../services/notification.service");
 
 const REQUEST_TYPES = new Set(["new_asset", "assignment"]);
 
@@ -197,6 +199,14 @@ const create = async (req, res) => {
       entityId: result.insertId,
       after: { requestType, title, assetId, categoryId },
     });
+    await notifyPermission(db, orgId, PERMISSIONS.REQUESTS_APPROVE, {
+      type: "request_pending",
+      title: `New request: ${title}`,
+      body: requestType === "assignment" ? "Assignment request pending approval." : "New asset request pending approval.",
+      link: "/requests",
+      entityType: "asset_request",
+      entityId: result.insertId,
+    }, req.user.UserId);
 
     res.status(201).json({
       status: true,
@@ -247,33 +257,105 @@ const update = async (req, res) => {
     }
 
     const nextStatus = action === "approve" ? "approved" : action === "reject" ? "rejected" : "cancelled";
-    await db.query(
-      `UPDATE asset_requests
-       SET Status = ?, ReviewedBy = ?, ReviewedAt = NOW(), ReviewNotes = ?
-       WHERE RequestId = ? AND OrganizationId = ? AND Status = 'pending'`,
-      [nextStatus, req.user.UserId, reviewNotes, requestId, req.user.OrganizationId]
-    );
+    const conn = await db.getConnection();
+    let createdAssetId = row.AssetId;
+    try {
+      await conn.beginTransaction();
+      if (action === "approve" && row.RequestType === "assignment") {
+        if (!row.AssetId) {
+          await conn.rollback();
+          return res.status(400).json({ status: false, message: "This request has no asset to assign" });
+        }
+        const assigned = await assignAvailableAsset(conn, {
+          organizationId: req.user.OrganizationId,
+          assetId: row.AssetId,
+          userId: row.RequestedBy,
+          notes: row.Title,
+          assignedBy: req.user.UserId,
+        });
+        if (assigned.error) {
+          await conn.rollback();
+          return res.status(assigned.error.status).json({ status: false, message: assigned.error.message });
+        }
+      }
+      if (action === "approve" && row.RequestType === "new_asset") {
+        const tag = await nextAssetTag(conn, req.user.OrganizationId);
+        const [created] = await conn.query(
+          `INSERT INTO assets
+            (OrganizationId, AssetTag, Name, Description, CategoryId, Status, DepartmentId, LocationId, ProjectId, CreatedBy, UpdatedBy)
+           VALUES (?, ?, ?, ?, ?, 'Available', ?, ?, ?, ?, ?)`,
+          [
+            req.user.OrganizationId,
+            tag,
+            row.Title,
+            row.Justification,
+            row.CategoryId,
+            row.DepartmentId,
+            row.LocationId,
+            row.ProjectId,
+            req.user.UserId,
+            req.user.UserId,
+          ]
+        );
+        createdAssetId = created.insertId;
+        await writeLifecycle(conn, {
+          organizationId: req.user.OrganizationId,
+          assetId: createdAssetId,
+          eventType: "request",
+          previousValue: "pending",
+          newValue: "approved",
+          notes: row.Title,
+          createdBy: req.user.UserId,
+        });
+      }
 
-    if (row.AssetId) {
-      await writeLifecycle({
+      await conn.query(
+        `UPDATE asset_requests
+         SET Status = ?, ReviewedBy = ?, ReviewedAt = NOW(), ReviewNotes = ?, AssetId = COALESCE(?, AssetId)
+         WHERE RequestId = ? AND OrganizationId = ? AND Status = 'pending'`,
+        [nextStatus, req.user.UserId, reviewNotes, createdAssetId, requestId, req.user.OrganizationId]
+      );
+
+      if (row.AssetId && action !== "approve") {
+        await writeLifecycle(conn, {
+          organizationId: req.user.OrganizationId,
+          assetId: row.AssetId,
+          eventType: "request",
+          previousValue: "pending",
+          newValue: nextStatus,
+          notes: reviewNotes || row.Title,
+          createdBy: req.user.UserId,
+        });
+      }
+
+      await writeAudit(conn, {
         organizationId: req.user.OrganizationId,
-        assetId: row.AssetId,
-        eventType: "request",
-        previousValue: "pending",
-        newValue: nextStatus,
-        notes: reviewNotes || row.Title,
-        createdBy: req.user.UserId,
+        userId: req.user.UserId,
+        action: `request.${action}`,
+        entityType: "asset_request",
+        entityId: requestId,
+        after: { action, reviewNotes, assetId: createdAssetId },
       });
-    }
 
-    await writeAudit({
-      organizationId: req.user.OrganizationId,
-      userId: req.user.UserId,
-      action: `request.${action}`,
-      entityType: "asset_request",
-      entityId: requestId,
-      after: { action, reviewNotes },
-    });
+      if (row.RequestedBy && Number(row.RequestedBy) !== Number(req.user.UserId)) {
+        await notify(conn, {
+          organizationId: req.user.OrganizationId,
+          userId: row.RequestedBy,
+          type: "request_reviewed",
+          title: `Request ${nextStatus}: ${row.Title}`,
+          body: reviewNotes || (action === "approve" ? "Your request was approved." : "Your request was updated."),
+          link: "/requests",
+          entityType: "asset_request",
+          entityId: requestId,
+        });
+      }
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
 
     res.json({
       status: true,

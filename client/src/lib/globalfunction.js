@@ -129,7 +129,8 @@ export function hasPermission(user, key) {
   return false;
 }
 
-export function roleLabel(role) {
+export function roleLabel(role, name) {
+  if (name) return name;
   const labels = {
     site_admin: "Site Admin",
     organization_admin: "Organization Admin",

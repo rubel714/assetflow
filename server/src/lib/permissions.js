@@ -26,6 +26,23 @@ const PERMISSIONS = {
 
 const TENANT_PERMISSIONS = Object.values(PERMISSIONS).filter((key) => !key.startsWith("site."));
 
+const PERMISSION_CATALOG = [
+  { key: PERMISSIONS.DASHBOARD_READ, name: "View dashboard", group: "Dashboard", note: "Counts, charts, and alerts." },
+  { key: PERMISSIONS.ORG_MANAGE, name: "Manage organization settings", group: "Organization", note: "Name, logo, and profile." },
+  { key: PERMISSIONS.SETUP_MANAGE, name: "Manage setup lists", group: "Organization", note: "Departments, locations, categories, and similar lists." },
+  { key: PERMISSIONS.USERS_READ, name: "View users", group: "People", note: "See who can sign in." },
+  { key: PERMISSIONS.USERS_MANAGE, name: "Add and edit users", group: "People", note: "Create accounts and change their details." },
+  { key: PERMISSIONS.ASSETS_READ, name: "View assets", group: "Assets", note: "Open the register and asset records." },
+  { key: PERMISSIONS.ASSETS_MANAGE, name: "Create and edit assets", group: "Assets", note: "Add assets and update their details." },
+  { key: PERMISSIONS.ASSETS_ASSIGN, name: "Assign and transfer assets", group: "Assets", note: "Hand over, move, or return an asset." },
+  { key: PERMISSIONS.ASSETS_ACCEPT, name: "Accept asset handover", group: "Assets", note: "Confirm custody of an assigned asset." },
+  { key: PERMISSIONS.MAINTENANCE_REQUEST, name: "Request maintenance", group: "Maintenance", note: "Open a work order." },
+  { key: PERMISSIONS.MAINTENANCE_MANAGE, name: "Manage maintenance", group: "Maintenance", note: "Update status and cost." },
+  { key: PERMISSIONS.REQUESTS_CREATE, name: "Create asset requests", group: "Requests", note: "Ask for an asset." },
+  { key: PERMISSIONS.REQUESTS_APPROVE, name: "Approve asset requests", group: "Requests", note: "Accept or reject requests." },
+  { key: PERMISSIONS.REPORTS_EXPORT, name: "Export reports", group: "Reports", note: "Download CSV files." },
+];
+
 const ROLE_PERMISSIONS = {
   [ROLES.SITE_ADMIN]: [PERMISSIONS.SITE_MANAGE, PERMISSIONS.SITE_ENTER],
   [ROLES.ORGANIZATION_ADMIN]: TENANT_PERMISSIONS,
@@ -58,6 +75,7 @@ module.exports = {
   ROLES,
   PERMISSIONS,
   TENANT_PERMISSIONS,
+  PERMISSION_CATALOG,
   ROLE_PERMISSIONS,
   ASSET_STATUSES,
 };

@@ -24,6 +24,15 @@ export const ORG_SECTIONS = [
     hint: "Job titles that can be assigned to users.",
   },
   {
+    key: "roles",
+    label: "Roles",
+    singular: "role",
+    path: "/roles",
+    to: "/organization/roles",
+    hint: "Access levels that can be assigned to users.",
+    permission: "users.manage",
+  },
+  {
     key: "departments",
     label: "Departments",
     singular: "department",

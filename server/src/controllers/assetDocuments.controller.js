@@ -7,6 +7,12 @@ const {
   attachDocumentUrl,
 } = require("../services/assetDocument.service");
 const { isEmployee } = require("../middleware/auth");
+const { PERMISSIONS } = require("../lib/permissions");
+
+function canChangeDocuments(user, asset) {
+  if ((user.permissions || []).includes(PERMISSIONS.ASSETS_MANAGE)) return true;
+  return isEmployee(user) && Number(asset.CustodianId) === Number(user.UserId);
+}
 
 async function assertAssetAccess(req, assetId) {
   const asset = await getAsset(req.user.OrganizationId, assetId);
@@ -57,9 +63,9 @@ const create = async (req, res) => {
       discardUpload(req);
       return res.status(access.error.statusCode).json({ status: false, message: access.error.message });
     }
-    if (isEmployee(req.user) && access.asset.CustodianId !== req.user.UserId) {
+    if (!canChangeDocuments(req.user, access.asset)) {
       discardUpload(req);
-      return res.status(403).json({ status: false, message: "You can only attach files to your assets" });
+      return res.status(403).json({ status: false, message: "You cannot attach files to this asset" });
     }
 
     const storedPath = relativeDocumentPath(req.user.OrganizationId, req.file.filename);
@@ -114,6 +120,9 @@ const remove = async (req, res) => {
        WHERE DocumentId = ? AND AssetId = ? AND OrganizationId = ? LIMIT 1`,
       [documentId, assetId, req.user.OrganizationId]
     );
+    if (!canChangeDocuments(req.user, access.asset)) {
+      return res.status(403).json({ status: false, message: "You cannot remove files from this asset" });
+    }
     if (!rows.length) {
       return res.status(404).json({ status: false, message: "Document not found" });
     }

@@ -4,7 +4,7 @@ const env = require("../config/env");
 const { ROLES, ROLE_PERMISSIONS } = require("../lib/permissions");
 const { isSiteAdmin, organizationAccessError } = require("../lib/orgAccess");
 
-const USER_SELECT = `u.UserId, u.OrganizationId, u.Email, u.FullName, u.RoleKey, u.Status, u.ImagePath,
+const USER_SELECT = `u.UserId, u.OrganizationId, u.Email, u.FullName, u.RoleKey, r.Name AS RoleName, u.Status, u.ImagePath,
               o.Name AS OrganizationName, o.Code AS OrganizationCode,
               o.LogoPath AS OrganizationLogoPath,
               o.Status AS OrganizationStatus, o.AccessStartsAt, o.AccessEndsAt`;
@@ -42,6 +42,7 @@ async function requireAuth(req, res, next) {
       `SELECT ${USER_SELECT}
        FROM users u
        LEFT JOIN organizations o ON o.OrganizationId = u.OrganizationId
+       LEFT JOIN roles r ON r.RoleKey = u.RoleKey
        WHERE u.UserId = ?
        LIMIT 1`,
       [payload.userId]

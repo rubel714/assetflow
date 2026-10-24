@@ -1,5 +1,19 @@
 import React from "react";
 
+const FALLBACK_ROLES = [
+  { RoleKey: "employee", Name: "Employee" },
+  { RoleKey: "asset_manager", Name: "Asset Manager" },
+  { RoleKey: "organization_admin", Name: "Organization Admin" },
+];
+
+function roleOptions(roles, current) {
+  const list = roles?.length ? roles.map((item) => ({ RoleKey: item.RoleKey, Name: item.Name })) : [...FALLBACK_ROLES];
+  if (current && !list.some((item) => item.RoleKey === current)) {
+    list.unshift({ RoleKey: current, Name: current });
+  }
+  return list;
+}
+
 export default function UserForm({
   form,
   lookups,
@@ -124,10 +138,13 @@ export default function UserForm({
             <div>
               <label className="input-label">Role</label>
               <select className="input-field" value={form.role} onChange={update("role")}>
-                <option value="employee">Employee</option>
-                <option value="asset_manager">Asset Manager</option>
-                <option value="organization_admin">Organization Admin</option>
+                {roleOptions(lookups?.roles, form.role).map((item) => (
+                  <option key={item.RoleKey} value={item.RoleKey}>
+                    {item.Name}
+                  </option>
+                ))}
               </select>
+              <p className="text-[11px] text-muted mt-1">Add or edit roles under Organization → Roles.</p>
             </div>
             {isEdit && (
               <div>

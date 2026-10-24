@@ -14,6 +14,7 @@ function toPublicUser(user, permissions) {
     Email: user.Email || null,
     FullName: user.FullName,
     Role: user.RoleKey,
+    RoleName: user.RoleName || null,
     OrganizationId: user.OrganizationId,
     OrganizationName: user.OrganizationName || null,
     OrganizationCode: user.OrganizationCode || null,
@@ -37,12 +38,13 @@ const login = async (req, res) => {
     }
 
     const [rows] = await db.query(
-      `SELECT u.UserId, u.Email, u.Password, u.FullName, u.RoleKey, u.Status, u.ImagePath,
+      `SELECT u.UserId, u.Email, u.Password, u.FullName, u.RoleKey, r.Name AS RoleName, u.Status, u.ImagePath,
               u.OrganizationId, o.Name AS OrganizationName, o.Code AS OrganizationCode,
               o.LogoPath AS OrganizationLogoPath,
               o.Status AS OrganizationStatus, o.AccessStartsAt, o.AccessEndsAt
        FROM users u
        LEFT JOIN organizations o ON o.OrganizationId = u.OrganizationId
+       LEFT JOIN roles r ON r.RoleKey = u.RoleKey
        WHERE u.Email = ?
        LIMIT 1`,
       [email]

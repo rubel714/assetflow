@@ -15,6 +15,8 @@ export default function AssetDetail() {
   const [asset, setAsset] = useState(null);
   const [history, setHistory] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [warranties, setWarranties] = useState([]);
+  const [warrantyForm, setWarrantyForm] = useState({ vendor: "", startDate: "", endDate: "", notes: "" });
   const [users, setUsers] = useState([]);
   const [userId, setUserId] = useState("");
   const [notes, setNotes] = useState("");
@@ -25,10 +27,12 @@ export default function AssetDetail() {
     return Promise.all([
       api.get(`/assets/${id}`),
       api.get(`/assets/${id}/documents`).catch(() => ({ data: { documents: [] } })),
-    ]).then(([res, docs]) => {
+      api.get(`/assets/${id}/warranties`).catch(() => ({ data: { warranties: [] } })),
+    ]).then(([res, docs, warr]) => {
       setAsset(res.data.asset);
       setHistory(res.data.history || []);
       setDocuments(docs.data.documents || []);
+      setWarranties(warr.data.warranties || []);
       setLoadFailed(false);
       setLoadError("");
     });
@@ -82,6 +86,38 @@ export default function AssetDetail() {
       showSnackbar("File attached");
     } catch (err) {
       showSnackbar(err.response?.data?.message || "Could not upload file", { type: "error" });
+    }
+  }
+
+  async function addWarranty(e) {
+    e.preventDefault();
+    if (!warrantyForm.endDate) {
+      showSnackbar("End date is required", { type: "validation" });
+      return;
+    }
+    try {
+      await api.post(`/assets/${id}/warranties`, warrantyForm);
+      setWarrantyForm({ vendor: "", startDate: "", endDate: "", notes: "" });
+      await load();
+      showSnackbar("Warranty saved");
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || "Could not save warranty", { type: "error" });
+    }
+  }
+
+  async function deleteWarranty(row) {
+    const ok = await confirmAction({
+      title: "Delete warranty?",
+      message: `Coverage ending ${String(row.EndDate).slice(0, 10)} will be removed.`,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/assets/${id}/warranties/${row.WarrantyId}`);
+      await load();
+      showSnackbar("Warranty deleted");
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || "Could not delete warranty", { type: "error" });
     }
   }
 
@@ -216,7 +252,7 @@ export default function AssetDetail() {
                 {users.map((u) => (
                   <option key={u.UserId} value={u.UserId}>
                     {u.FullName}
-                    {u.Role ? ` · ${roleLabel(u.Role)}` : ""}
+                    {u.Role ? ` · ${roleLabel(u.Role, u.RoleName)}` : ""}
                   </option>
                 ))}
               </select>
@@ -253,12 +289,70 @@ export default function AssetDetail() {
       )}
 
       <div className="glass rounded-2xl p-6 space-y-4 qr-print-hide">
+        <h3 className="font-semibold">Warranties</h3>
+        {warranties.length === 0 ? (
+          <p className="text-muted text-sm">No extra coverage rows. The register date still applies.</p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {warranties.map((row) => (
+              <li key={row.WarrantyId} className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+                <span>
+                  {row.Vendor ? `${row.Vendor} · ` : ""}
+                  {String(row.EndDate).slice(0, 10)}
+                  {row.Notes ? ` · ${row.Notes}` : ""}
+                </span>
+                {canManage && (
+                  <button type="button" className="text-red-400 text-xs" onClick={() => deleteWarranty(row)}>
+                    Delete
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {canManage && (
+          <form className="grid sm:grid-cols-4 gap-3" onSubmit={addWarranty}>
+            <input
+              className="input-field"
+              placeholder="Vendor"
+              value={warrantyForm.vendor}
+              onChange={(e) => setWarrantyForm((f) => ({ ...f, vendor: e.target.value }))}
+            />
+            <input
+              className="input-field"
+              type="date"
+              value={warrantyForm.startDate}
+              onChange={(e) => setWarrantyForm((f) => ({ ...f, startDate: e.target.value }))}
+            />
+            <input
+              className="input-field"
+              type="date"
+              required
+              value={warrantyForm.endDate}
+              onChange={(e) => setWarrantyForm((f) => ({ ...f, endDate: e.target.value }))}
+            />
+            <input
+              className="input-field sm:col-span-3"
+              placeholder="Notes"
+              value={warrantyForm.notes}
+              onChange={(e) => setWarrantyForm((f) => ({ ...f, notes: e.target.value }))}
+            />
+            <button type="submit" className="px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold">
+              Add coverage
+            </button>
+          </form>
+        )}
+      </div>
+
+      <div className="glass rounded-2xl p-6 space-y-4 qr-print-hide">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h3 className="font-semibold">Attachments</h3>
-          <label className="px-4 py-2 rounded-xl border border-white/10 text-sm font-semibold hover:bg-white/5 cursor-pointer">
-            Upload file
-            <input type="file" className="hidden" onChange={uploadDocument} />
-          </label>
+          {canManage && (
+            <label className="px-4 py-2 rounded-xl border border-white/10 text-sm font-semibold hover:bg-white/5 cursor-pointer">
+              Upload file
+              <input type="file" className="hidden" onChange={uploadDocument} />
+            </label>
+          )}
         </div>
         {documents.length === 0 ? (
           <p className="text-muted text-sm">No files attached.</p>
@@ -274,13 +368,15 @@ export default function AssetDetail() {
                 >
                   {doc.OriginalName}
                 </a>
-                <button
-                  type="button"
-                  className="text-red-400 text-xs"
-                  onClick={() => deleteDocument(doc)}
-                >
-                  Delete
-                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    className="text-red-400 text-xs"
+                    onClick={() => deleteDocument(doc)}
+                  >
+                    Delete
+                  </button>
+                )}
               </li>
             ))}
           </ul>

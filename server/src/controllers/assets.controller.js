@@ -2,6 +2,9 @@ const db = require("../config/db");
 const { writeAudit, writeLifecycle } = require("../services/audit.service");
 const { ASSET_SELECT, nextAssetTag, getAsset, attachImageUrl, canAssignStatus, buildAssetListWhere, employeeCanViewAsset, employeeRequestedAsset } = require("../services/asset.service");
 const { relativeImagePath, deleteImageFile } = require("../services/assetImage.service");
+const { assignAvailableAsset } = require("../services/custody.service");
+const { notify } = require("../services/notification.service");
+const { sendCsv } = require("../lib/csv");
 const { resolveStatusChange } = require("../lib/statusTransitions");
 const { assertWithinOrgLimit } = require("../lib/orgAccess");
 
@@ -370,56 +373,17 @@ const assign = async (req, res) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
-      const asset = await getAsset(req.user.OrganizationId, assetId, conn);
-      if (!asset) {
-        await conn.rollback();
-        return res.status(404).json({ status: false, message: "Asset not found" });
-      }
-      if (asset.Status !== "Available") {
-        await conn.rollback();
-        return res.status(400).json({
-          status: false,
-          message: asset.Status === "Assigned"
-            ? "Asset is already assigned. Use transfer instead."
-            : `Cannot assign an asset with status ${asset.Status}`,
-        });
-      }
-
-      const [result] = await conn.query(
-        `INSERT INTO asset_assignments
-          (OrganizationId, AssetId, UserId, Notes, Status, AssignedBy, AcceptanceStatus, AcceptedAt)
-         VALUES (?, ?, ?, ?, 'open', ?, ?, ${userId === req.user.UserId ? "NOW()" : "NULL"})`,
-        [
-          req.user.OrganizationId,
-          assetId,
-          userId,
-          notes,
-          req.user.UserId,
-          userId === req.user.UserId ? "accepted" : "pending",
-        ]
-      );
-      await conn.query(
-        `UPDATE assets SET Status = 'Assigned', CurrentAssignmentId = ?, UpdatedBy = ?
-         WHERE AssetId = ? AND OrganizationId = ?`,
-        [result.insertId, req.user.UserId, assetId, req.user.OrganizationId]
-      );
-      await writeLifecycle(conn, {
+      const assigned = await assignAvailableAsset(conn, {
         organizationId: req.user.OrganizationId,
         assetId,
-        eventType: "assign",
-        previousValue: "Available",
-        newValue: assignee.FullName,
+        userId,
         notes,
-        createdBy: req.user.UserId,
+        assignedBy: req.user.UserId,
       });
-      await writeAudit(conn, {
-        organizationId: req.user.OrganizationId,
-        userId: req.user.UserId,
-        action: "asset.assign",
-        entityType: "asset",
-        entityId: assetId,
-        after: { userId, notes },
-      });
+      if (assigned.error) {
+        await conn.rollback();
+        return res.status(assigned.error.status).json({ status: false, message: assigned.error.message });
+      }
       await conn.commit();
       res.json({ status: true, asset: await getAsset(req.user.OrganizationId, assetId) });
     } catch (err) {
@@ -506,6 +470,18 @@ const transfer = async (req, res) => {
         before: { userId: asset.CustodianId },
         after: { userId, notes },
       });
+      if (userId !== req.user.UserId) {
+        await notify(conn, {
+          organizationId: req.user.OrganizationId,
+          userId,
+          type: "handover_pending",
+          title: `Handover pending: ${asset.AssetTag}`,
+          body: `${asset.Name} was transferred to you.`,
+          link: "/my-assets",
+          entityType: "assignment",
+          entityId: result.insertId,
+        });
+      }
       await conn.commit();
       res.json({ status: true, asset: await getAsset(req.user.OrganizationId, assetId) });
     } catch (err) {
@@ -660,71 +636,58 @@ const lookup = async (req, res) => {
   }
 };
 
-function csvEscape(value) {
-  if (value === null || value === undefined) return "";
-  const text = String(value);
-  if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-  return text;
-}
-
 const exportCsv = async (req, res) => {
   try {
     const { where, params } = buildAssetListWhere(req.user, req.query);
     const [rows] = await db.query(`${ASSET_SELECT} ${where} ORDER BY a.AssetTag ASC`, params);
-    const header = [
-      "AssetTag",
-      "Name",
-      "Category",
-      "Status",
-      "SerialNumber",
-      "Brand",
-      "Model",
-      "Custodian",
-      "Department",
-      "Location",
-      "Project",
-      "Supplier",
-      "Manufacturer",
-      "CountryOfOrigin",
-      "ReceiveDate",
-      "LastWarrantyDate",
-      "MaintenanceSchedule",
-      "Remarks",
-      "PurchaseDate",
-      "PurchaseCost",
-    ];
-    const lines = [header.join(",")];
-    for (const row of rows) {
-      lines.push(
-        [
-          row.AssetTag,
-          row.Name,
-          row.CategoryName,
-          row.Status,
-          row.SerialNumber,
-          row.Brand,
-          row.Model,
-          row.CustodianName,
-          row.DepartmentName,
-          row.LocationName,
-          row.ProjectName,
-          row.SupplierName,
-          row.ManufacturerName,
-          row.CountryOfOriginName,
-          row.ReceiveDate,
-          row.LastWarrantyDate,
-          row.MaintenanceScheduleName,
-          row.Remarks,
-          row.PurchaseDate,
-          row.PurchaseCost,
-        ]
-          .map(csvEscape)
-          .join(",")
-      );
-    }
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", "attachment; filename=asset-register.csv");
-    res.send(lines.join("\n"));
+    sendCsv(
+      res,
+      "asset-register.csv",
+      [
+        "AssetTag",
+        "Name",
+        "Category",
+        "Status",
+        "SerialNumber",
+        "Brand",
+        "Model",
+        "Custodian",
+        "Department",
+        "Location",
+        "Project",
+        "Supplier",
+        "Manufacturer",
+        "CountryOfOrigin",
+        "ReceiveDate",
+        "LastWarrantyDate",
+        "MaintenanceSchedule",
+        "Remarks",
+        "PurchaseDate",
+        "PurchaseCost",
+      ],
+      rows.map((row) => [
+        row.AssetTag,
+        row.Name,
+        row.CategoryName,
+        row.Status,
+        row.SerialNumber,
+        row.Brand,
+        row.Model,
+        row.CustodianName,
+        row.DepartmentName,
+        row.LocationName,
+        row.ProjectName,
+        row.SupplierName,
+        row.ManufacturerName,
+        row.CountryOfOriginName,
+        row.ReceiveDate,
+        row.LastWarrantyDate,
+        row.MaintenanceScheduleName,
+        row.Remarks,
+        row.PurchaseDate,
+        row.PurchaseCost,
+      ])
+    );
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: false, message: "Could not export assets" });

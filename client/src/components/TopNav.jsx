@@ -12,6 +12,7 @@ import {
 } from "../lib/globalfunction";
 import { ORG_SECTIONS } from "../lib/orgSections";
 import ThemeToggle from "./ThemeToggle";
+import NotificationBell from "./NotificationBell";
 import { assetImageSrc } from "../lib/assetImage";
 
 function dropdownButtonClass(active) {
@@ -79,6 +80,7 @@ export default function TopNav({ onLogout }) {
   const canSetup = hasPermission(user, "setup.manage");
   const orgSections = actingAsOrg || !siteAdmin
     ? ORG_SECTIONS.filter((item) => {
+        if (item.permission) return hasPermission(user, item.permission);
         if (item.key === "settings") return hasPermission(user, "org.manage");
         return canSetup;
       })
@@ -118,6 +120,7 @@ export default function TopNav({ onLogout }) {
         { to: "/dashboard", label: "Dashboard", end: true, show: true },
         { to: "/warranties", label: "Warranties", show: hasPermission(user, "assets.read") },
         { to: "/maintenance", label: "Maintenance", show: hasPermission(user, "maintenance.request") },
+        { to: "/reports", label: "Reports", show: hasPermission(user, "reports.export") },
         { to: "/users", label: "Users", show: hasPermission(user, "users.read") },
         { to: "/admin/organizations", label: "Organizations", show: siteAdmin && hasPermission(user, "site.manage") },
         ...infoLinks,
@@ -278,6 +281,7 @@ export default function TopNav({ onLogout }) {
           <div className="hidden md:flex items-center gap-3">
           {user ? (
             <>
+              <NotificationBell />
               {assetImageSrc(user?.ImageUrl) ? (
                 <img
                   src={assetImageSrc(user.ImageUrl)}
@@ -289,7 +293,7 @@ export default function TopNav({ onLogout }) {
                 <p className="text-sm font-medium leading-tight">
                   {user?.FullName || user?.Email || "User"}
                 </p>
-                <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
+                <p className="text-[11px] text-accent">{roleLabel(user?.Role, user?.RoleName)}</p>
               </div>
               <ThemeToggle />
               <button
@@ -436,10 +440,11 @@ export default function TopNav({ onLogout }) {
                   ) : null}
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{user?.FullName || user?.Email}</p>
-                    <p className="text-[11px] text-accent">{roleLabel(user?.Role)}</p>
+                    <p className="text-[11px] text-accent">{roleLabel(user?.Role, user?.RoleName)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <NotificationBell />
                   <ThemeToggle />
                   <button
                     onClick={handleLogout}
